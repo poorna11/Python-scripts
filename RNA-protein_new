@@ -1,0 +1,183 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Nov 26 12:44:30 2014 @author: Poorna
+"""
+
+"""Detect and plot RNA base- amino acid interactions."""
+from fr3d.cif.reader import Cif
+from fr3d.definitions import RNAconnections
+from fr3d.definitions import Ribophos_connect
+from fr3d.definitions import aa_connections
+from fr3d.definitions import aa_backconnect
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+def get_structure(filename):
+    with open(filename, 'rb') as raw:
+        structure = Cif(raw).structure()
+        """All RNA bases are placed in the standard orientation. All Hydrogen
+ atoms are inferred. Rotation matrix is calculated for each base."""
+        structure.infer_hydrogens()
+        return structure
+
+def atom_dist(base_residue,aa_residue):
+    """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
+    of type "aa" from each atom of base"""
+    min_baa = 10    
+    for base_atom in base_residue.atoms():
+        base_coord = base_atom.coordinates()        
+        for atom in aa_residue.atoms():
+            aa_atom = atom.coordinates()
+            dist_baa = np.subtract(aa_atom,base_coord)
+            baa_scalar = np.linalg.norm(dist_baa)
+            #print baa_scalar
+            if baa_scalar <= min_baa:
+                min_baa = baa_scalar
+        return min_baa
+
+def find_neighbors(bases, base_part, amino_acids, aa_part, dist_cent_cutoff,dist_aa_cutoff):
+    """Finds all amino acids of type "aa" for which center of "aa_part" is within
+    specified distance of center of bases of type "base" and returns superposed bases"""
+    #count_total = 0
+    count = 0
+    list_aa_coord = [] 
+    list_base_coord = [] 
+    aas = list(amino_acids)
+    for base_residue in bases:
+        base_center = base_residue.centers[base_part]
+        
+        for aa_residue in aas:
+            aa_center = aa_residue.centers[aa_part]
+           
+            dist_vector = np.subtract(aa_center,base_center)
+            dist_scalar = np.linalg.norm(dist_vector)
+            if dist_scalar <= dist_cent_cutoff and \
+            atom_dist(base_residue, aa_residue) <= dist_aa_cutoff:
+                count = count +1
+                #print base_residue, aa_residue
+                base_coordinates = {}
+                for base_atom in base_residue.atoms():
+                    base_key = base_atom.name
+                    base_coordinates[base_key]= translate_rotate(base_atom, base_center, base_residue)
+                    #print base_key, translate_rotate(base_atom, base_center, base_residue)
+                list_base_coord.append(base_coordinates)     
+                
+                aa_coordinates = {}                           
+                for atom in aa_residue.atoms():
+                    key = atom.name
+                    aa_coordinates[key]= translate_rotate(atom, base_center, base_residue)
+                    #print key, translate_rotate(atom, base_center, base_residue)
+                list_aa_coord.append(aa_coordinates)
+                    
+    print "No. of Hydrogen-bond interactions:", count
+    return list_aa_coord, list_base_coord
+    
+def translate_rotate(atom, base_center, base_residue):
+     atom_coord = atom.coordinates()
+     dist_translate = np.subtract(atom_coord, base_center)
+     dist_aa_matrix = np.matrix(dist_translate)
+     rotation_matrix = base_residue.rotation_matrix
+     #transposed_rotation = rotation_matrix.transpose()
+     rotated_atom = dist_aa_matrix * rotation_matrix
+     coord_array = np.array(rotated_atom)
+     a = coord_array.flatten()
+     coord = a.tolist()    
+     return coord
+     
+def find_stacking(base_center, aa_center):
+    """Finds stacking interaction between amino acids and RNA bases"""
+    count_stack = 0    
+    aa_x = aa_center[0]
+    aa_y = aa_center[1]
+    base_x = base_center[0]
+    base_y = base_center[1]
+    if base_x <= aa_x and base_y <= aa_y:
+        count_stack = count_stack +1
+    return count_stack
+            
+    
+def draw_base(base_seq, ax):
+    """Connects atoms to draw neighboring bases and amino acids for 3D plots"""
+     #creates lists of rotated base coordinates
+    for basecoord_list in list_base:
+        new_base_x = []
+        new_base_y = []
+        new_base_z = [] 
+        
+        back_base_x = []
+        back_base_y = []
+        back_base_z = []
+        
+        for atomname in RNAconnections[base_seq]:
+            coord_base = []
+            coord_base= basecoord_list[atomname]
+            new_base_x.append(coord_base[0])
+            new_base_y.append(coord_base[1])
+            new_base_z.append(coord_base[2])
+        base_lines= ax.plot(new_base_x, new_base_y, new_base_z, label= 'Base')
+        plt.setp(base_lines, 'color', 'b', 'linewidth', 1.0)
+    
+        for atomname in Ribophos_connect[base_seq]:
+            back_base=[]           
+            back_base= basecoord_list[atomname]
+            back_base_x.append(back_base[0])
+            back_base_y.append(back_base[1])
+            back_base_z.append(back_base[2])
+        base_lines= ax.plot(back_base_x, back_base_y, back_base_z, label= 'Base')
+        plt.setp(base_lines, 'color', 'g', 'linewidth', 1.0)
+    
+def draw_aa(aa, ax):
+    #Connects atoms to draw neighboring bases and amino acids for 3D plots
+    for aacoord_list in list_aa:
+        new_aa_x=[]
+        new_aa_y=[]
+        new_aa_z=[]
+        
+        back_aa_x=[]
+        back_aa_y=[]
+        back_aa_z=[]
+                
+        for atomname in aa_connections[aa]:
+            coord_aa=[]           
+            coord_aa= aacoord_list[atomname]
+            new_aa_x.append(coord_aa[0])
+            new_aa_y.append(coord_aa[1])
+            new_aa_z.append(coord_aa[2])
+        aa_lines= ax.plot(new_aa_x, new_aa_y, new_aa_z, label= 'Amino acid')
+        plt.setp(aa_lines, 'color', 'r', 'linewidth', 1.0)
+        
+        for atomname in aa_backconnect[aa]:
+            back_aa=[]           
+            back_aa= aacoord_list[atomname]
+            back_aa_x.append(back_aa[0])
+            back_aa_y.append(back_aa[1])
+            back_aa_z.append(back_aa[2])
+        aa_lines= ax.plot(back_aa_x, back_aa_y, back_aa_z, label= 'Amino acid')
+        plt.setp(aa_lines, 'color', 'y', 'linewidth', 1.0)
+   
+"""Inputs base, amino acid, aa_part of interest and cut-off distance for subsequent functions"""   
+if __name__=="__main__":
+    structure = get_structure('E:\\Leontis\\Python scripts\\4V4Q.cif')
+    base_seq = 'G'
+    #chain = 'BB'
+    aa = 'TYR'
+    aa_part = 'aa_sidechain'
+    
+    bases = structure.residues(sequence= base_seq)
+    amino_acids = structure.residues(sequence=aa)
+    list_aa, list_base = find_neighbors(bases, 'base', amino_acids, 'aa_sidechain', 10, 6)
+    
+    # 3D plots of base-aa interactions
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    draw_base(base_seq, ax)
+    draw_aa(aa, ax)
+    ax.set_xlabel('X Axis')
+    ax.set_ylabel('Y Axis')
+    ax.set_zlabel('Z Axis')
+    ax.set_xlim3d(10, -15)
+    ax.set_ylim3d(10, -15)
+    ax.set_zlim3d(10, -15)
+    plt.title( '%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
+    plt.show()
