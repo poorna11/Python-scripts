@@ -55,6 +55,7 @@ def find_neighbors(bases, base_part, amino_acids, aa_part, dist_cent_cutoff,dist
             if dist_scalar <= dist_cent_cutoff and \
             atom_dist(base_residue, aa_residue) <= dist_aa_cutoff:
                 count = count +1
+                count_stack = find_stacking(base_center,aa_center)
                 #print base_residue, aa_residue
                 base_coordinates = {}
                 for base_atom in base_residue.atoms():
@@ -71,7 +72,8 @@ def find_neighbors(bases, base_part, amino_acids, aa_part, dist_cent_cutoff,dist
                 list_aa_coord.append(aa_coordinates)
                     
     print "No. of Hydrogen-bond interactions:", count
-    return list_aa_coord, list_base_coord
+    print "No. of stacking interactions:", count_stack
+    return list_aa_coord, list_base_coord, count
     
 def translate_rotate(atom, base_center, base_residue):
      atom_coord = atom.coordinates()
@@ -92,7 +94,11 @@ def find_stacking(base_center, aa_center):
     aa_y = aa_center[1]
     base_x = base_center[0]
     base_y = base_center[1]
-    if base_x <= aa_x and base_y <= aa_y:
+    a = base_x - 3
+    b = base_x + 3
+    c = base_y - 3
+    d = base_y + 3
+    if a <= aa_x <= b and c <= aa_y <= d:
         count_stack = count_stack +1
     return count_stack
             
@@ -158,15 +164,15 @@ def draw_aa(aa, ax):
    
 """Inputs base, amino acid, aa_part of interest and cut-off distance for subsequent functions"""   
 if __name__=="__main__":
-    structure = get_structure('E:\\Leontis\\Python scripts\\4V4Q.cif')
+    structure = get_structure('E:\\Leontis\\Python scripts\\2AW7.cif')
     base_seq = 'G'
-    #chain = 'BB'
-    aa = 'TYR'
+    chain = 'A'
+    aa = 'LYS'
     aa_part = 'aa_sidechain'
     
-    bases = structure.residues(sequence= base_seq)
+    bases = structure.residues(chain= chain, sequence= base_seq)
     amino_acids = structure.residues(sequence=aa)
-    list_aa, list_base = find_neighbors(bases, 'base', amino_acids, 'aa_sidechain', 10, 6)
+    list_aa, list_base, count = find_neighbors(bases, 'base', amino_acids, 'aa_sidechain', 10, 6)
     
     # 3D plots of base-aa interactions
     fig = plt.figure()
@@ -179,5 +185,5 @@ if __name__=="__main__":
     ax.set_xlim3d(10, -15)
     ax.set_ylim3d(10, -15)
     ax.set_zlim3d(10, -15)
-    plt.title( '%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
+    plt.title( '%d interactions of ' % count + '%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
     plt.show()
