@@ -36,7 +36,7 @@ def atom_dist(base_residue,aa_residue):
                 min_baa = baa_scalar
         return min_baa
 
-def find_neighbors(bases, base_part, amino_acids, aa_part, dist_cent_cutoff,dist_aa_cutoff):
+def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff,dist_aa_cutoff):
     """Finds all amino acids of type "aa" for which center of "aa_part" is within
     specified distance of center of bases of type "base" and returns superposed bases"""
     #count_total = 0
@@ -82,9 +82,9 @@ def find_neighbors(bases, base_part, amino_acids, aa_part, dist_cent_cutoff,dist
                 new_aaList_len = len(list_aa_coord)
             
     if aaList_len == new_aaList_len:
-        print "No neighbors detected"
+        print "No neighbors detected in %s" % PDB
               
-    print "No. of stacking interactions:", count_stack
+    print "No. of stacking interactions in %s:" % PDB, count_stack
     return list_aa_coord, list_base_coord, count
     
 def translate_rotate(atom, base_center, base_residue):
@@ -178,28 +178,35 @@ def draw_aa(aa, ax):
         except:
             print "Missing residues"
             continue
+"""Inputs a list of PDBs of interest to generate super-imposed plots"""   
+PDB_List = ['2AW7','3VJR','4YBB','4W2F','4Y4P']
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
 """Inputs base, amino acid, aa_part of interest and cut-off distance for subsequent functions"""   
 if __name__=="__main__":
-    structure = get_structure('E:\\Leontis\\Python scripts\\4YBB.cif')
-    base_seq = 'G'
-    #chain = 'A'
-    aa = 'HIS'
-    aa_part = 'aa_sidechain'
+    for PDB in PDB_List:
+        structure = get_structure('E:\\Leontis\\Python scripts\\%s.cif' % PDB)
+        base_seq = 'G'
+        #chain = 'A'
+        aa = 'LYS'
+        aa_part = 'aa_sidechain'
     
-    bases = structure.residues(sequence= base_seq)
-    amino_acids = structure.residues(sequence=aa)
-    list_aa, list_base, count = find_neighbors(bases, 'base', amino_acids, 'aa_sidechain', 10, 6)
+        bases = structure.residues(sequence= base_seq)
+        amino_acids = structure.residues(sequence=aa)
+        list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, 'aa_sidechain', 10, 6)
     
-    # 3D plots of base-aa interactions
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    draw_base(base_seq, ax)
-    draw_aa(aa, ax)
-    ax.set_xlabel('X Axis')
-    ax.set_ylabel('Y Axis')
-    ax.set_zlabel('Z Axis')
-    ax.set_xlim3d(10, -15)
-    ax.set_ylim3d(10, -15)
-    ax.set_zlim3d(10, -15)
-    plt.title( '%d interactions of ' % count + '%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
-    plt.show()
+        # 3D plots of base-aa interactions
+        #fig = plt.figure()
+        
+        draw_base(base_seq, ax)
+        draw_aa(aa, ax)
+        ax.set_xlabel('X Axis')
+        ax.set_ylabel('Y Axis')
+        ax.set_zlabel('Z Axis')
+        ax.set_xlim3d(10, -15)
+        ax.set_ylim3d(10, -15)
+        ax.set_zlim3d(10, -15)
+        plt.title('%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
+        plt.show()
+    
