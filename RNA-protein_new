@@ -6,6 +6,7 @@ Created on Wed Nov 26 12:44:30 2014 @author: Poorna
 """Detect and plot RNA base- amino acid interactions."""
 from fr3d.cif.reader import Cif
 from fr3d.definitions import RNAconnections
+from fr3d.definitions import RNAbaseheavyatoms
 from fr3d.definitions import Ribophos_connect
 from fr3d.definitions import aa_connections
 from fr3d.definitions import aa_backconnect
@@ -24,7 +25,7 @@ def get_structure(filename):
 def atom_dist(base_residue,aa_residue):
     """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
     of type "aa" from each atom of base"""
-    min_baa = 10    
+    min_baa = 4
     for base_atom in base_residue.atoms():
         base_coord = base_atom.coordinates()        
         for atom in aa_residue.atoms():
@@ -33,10 +34,9 @@ def atom_dist(base_residue,aa_residue):
             baa_scalar = np.linalg.norm(dist_baa)
             #print baa_scalar
             if baa_scalar <= min_baa:
-                min_baa = baa_scalar
-        return min_baa
-
-def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff,dist_aa_cutoff):
+                return True
+                
+def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff):
     """Finds all amino acids of type "aa" for which center of "aa_part" is within
     specified distance of center of bases of type "base" and returns superposed bases"""
     #count_total = 0
@@ -45,8 +45,12 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff
     list_aa_coord = [] 
     list_base_coord = [] 
     aas = list(amino_acids)
+    aaList_len = None
+    new_aaList_len = None
+    
     for base_residue in bases:
         base_center = base_residue.centers[base_part]
+        #base_center = resi_center(base_residue)
         if base_center is None:
                 continue
         
@@ -54,23 +58,26 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff
         new_aaList_len = 0
         for aa_residue in aas:
             aa_center = aa_residue.centers[aa_part]
-            
             if aa_center is None:
                 continue
             
-            dist_vector = np.subtract(aa_center,base_center)
+            dist_vector = np.subtract(base_center, aa_center)
             dist_scalar = np.linalg.norm(dist_vector)
+            #base_seq = base_residue.sequence
             if dist_scalar <= dist_cent_cutoff and \
-            atom_dist(base_residue, aa_residue) <= dist_aa_cutoff:
+            atom_dist(base_residue, aa_residue):
                 count = count +1
+                #print base_residue, aa_residue
                 if test_stacking(base_center,aa_center):
                     count_stack = count_stack + 1
                 #print base_residue, aa_residue
+                
                 base_coordinates = {}
                 for base_atom in base_residue.atoms():
                     base_key = base_atom.name
                     base_coordinates[base_key]= translate_rotate(base_atom, base_center, base_residue)
                     #print base_key, translate_rotate(base_atom, base_center, base_residue)
+                    #basecenter = base_center.tolist()
                 list_base_coord.append(base_coordinates)     
                 
                 aa_coordinates = {}                           
@@ -85,6 +92,7 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff
         print "No neighbors detected in %s" % PDB
               
     print "No. of stacking interactions in %s:" % PDB, count_stack
+    print count
     return list_aa_coord, list_base_coord, count
     
 def translate_rotate(atom, base_center, base_residue):
@@ -123,6 +131,7 @@ def draw_base(base_seq, ax):
         back_base_x = []
         back_base_y = []
         back_base_z = []
+        
 
         try:
             for atomname in RNAconnections[base_seq]:
@@ -132,6 +141,8 @@ def draw_base(base_seq, ax):
                 new_base_y.append(coord_base[1])
                 new_base_z.append(coord_base[2])
             base_lines= ax.plot(new_base_x, new_base_y, new_base_z, label= 'Base')
+            #ax.scatter(basecenter[0], basecenter[1], basecenter[2], zdir='y', color='b', marker='o')
+            #ax.scatter(x = 0, y= 0, z= 0, color='b', marker='o')
             plt.setp(base_lines, 'color', 'b', 'linewidth', 1.0)
     
             for atomname in Ribophos_connect[base_seq]:
@@ -142,6 +153,7 @@ def draw_base(base_seq, ax):
                 back_base_z.append(back_base[2])
             base_lines= ax.plot(back_base_x, back_base_y, back_base_z, label= 'Base')
             plt.setp(base_lines, 'color', 'g', 'linewidth', 1.0)
+            
         except:
             print "Missing residues"
             continue
@@ -179,7 +191,7 @@ def draw_aa(aa, ax):
             print "Missing residues"
             continue
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['2AW7','3VJR','4YBB','4W2F','4Y4P']
+PDB_List = ['4W2F']
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
@@ -189,12 +201,12 @@ if __name__=="__main__":
         structure = get_structure('E:\\Leontis\\Python scripts\\%s.cif' % PDB)
         base_seq = 'G'
         #chain = 'A'
-        aa = 'LYS'
+        aa = 'HIS'
         aa_part = 'aa_sidechain'
     
         bases = structure.residues(sequence= base_seq)
         amino_acids = structure.residues(sequence=aa)
-        list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, 'aa_sidechain', 10, 6)
+        list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, 'aa_sidechain', 10)
     
         # 3D plots of base-aa interactions
         #fig = plt.figure()
