@@ -185,7 +185,7 @@ def draw_aa(aa, ax):
         back_aa_x=[]
         back_aa_y=[]
         back_aa_z=[]
-        
+            
         try:
             for atomname in aa_connections[aa]:
                 coord_aa=[]           
@@ -207,8 +207,42 @@ def draw_aa(aa, ax):
         except:
             print "Missing residues"
             continue
+        
+def draw_aa_cent(aa, aa_part, ax):
+    #Connects atoms to draw neighboring bases and amino acids for 3D plots
+    for aacoord_list in list_aa:
+        new_aa_x=[]
+        new_aa_y=[]
+        new_aa_z=[]
+        
+        aa_center_x = 0
+        aa_center_y = 0
+        aa_center_z = 0
+        n = 0
+        
+        if aa_part == 'aa_sidechain':
+            connections = aa_connections
+        elif aa_part == 'aa_backbone':
+            connections = aa_backconnect
+        try:
+            for atomname in connections[aa]:
+                coord_aa=[]           
+                coord_aa= aacoord_list[atomname]
+                new_aa_x.append(coord_aa[0])
+                new_aa_y.append(coord_aa[1])
+                new_aa_z.append(coord_aa[2])
+                
+                aa_center_x = aa_center_x + coord_aa[0]
+                aa_center_y = aa_center_y + coord_aa[1]
+                aa_center_z = aa_center_z + coord_aa[2]
+                n = n + 1
+            ax.scatter(aa_center_x/n, aa_center_y/n, aa_center_z/n, c= 'r', marker = 'o')
+        except:
+            print "Missing residues"
+            continue
+                
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['1S72']
+PDB_List = ['2AW7']
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
@@ -223,13 +257,15 @@ if __name__=="__main__":
     
         bases = structure.residues(sequence= base_seq)
         amino_acids = structure.residues(sequence=aa)
-        list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, 'aa_sidechain', 10)
+        list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, aa_part, 10)
     
         # 3D plots of base-aa interactions
         #fig = plt.figure()
         
         draw_base(base_seq, ax)
         draw_aa(aa, ax)
+        draw_aa_cent(aa, aa_part, ax)
+        
         ax.set_xlabel('X Axis')
         ax.set_ylabel('Y Axis')
         ax.set_zlabel('Z Axis')
