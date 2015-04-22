@@ -191,7 +191,7 @@ def draw_aa(aa, ax):
             print "Missing residues"
             continue
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['4W2F']
+PDB_List = ['4YBB','4W2F']
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
@@ -199,9 +199,9 @@ ax = fig.add_subplot(111, projection='3d')
 if __name__=="__main__":
     for PDB in PDB_List:
         structure = get_structure('E:\\Leontis\\Python scripts\\%s.cif' % PDB)
-        base_seq = 'G'
+        base_seq = 'A'
         #chain = 'A'
-        aa = 'HIS'
+        aa = 'ARG'
         aa_part = 'aa_sidechain'
     
         bases = structure.residues(sequence= base_seq)
