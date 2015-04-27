@@ -64,6 +64,7 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff
     aas = list(amino_acids)
     aaList_len = None
     new_aaList_len = None
+    #list_base_residue = []
     
     for base_residue in bases:
         base_center = base_residue.centers[base_part]
@@ -83,19 +84,17 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff
             base_seq = base_residue.sequence
             if dist_scalar <= dist_cent_cutoff and \
             atom_dist_basepart(base_residue, base_part, base_seq, aa_residue):
-                count = count +1
-                #print base_residue, aa_residue
+                
                 if test_stacking(base_center,aa_center):
                     count_stack = count_stack + 1
-                #print base_residue, aa_residue
-                
+                               
+                count = count +1
                 base_coordinates = {}
                 for base_atom in base_residue.atoms():
                     base_key = base_atom.name
                     base_coordinates[base_key]= translate_rotate(base_atom, base_center, base_residue)
-                    #print base_key, translate_rotate(base_atom, base_center, base_residue)
-                    #basecenter = base_center.tolist()
-                list_base_coord.append(base_coordinates)     
+                
+                list_base_coord.append(base_coordinates)
                 
                 aa_coordinates = {}                           
                 for atom in aa_residue.atoms():
@@ -104,7 +103,7 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa_part, dist_cent_cutoff
                     #print key, translate_rotate(atom, base_center, base_residue)
                 list_aa_coord.append(aa_coordinates)
                 new_aaList_len = len(list_aa_coord)
-            
+        #list_base_residue.append(base_residue)
     if aaList_len == new_aaList_len:
         print "No neighbors detected in %s" % PDB
               
@@ -136,7 +135,23 @@ def test_stacking(base_center, aa_center):
     d = base_y + 3
     return a <= aa_x <= b and c <= aa_y <= d
             
-    
+def detect_edge(base_seq, base_residue, aa_residue):
+    """Detects edge of nucletide interacting with part "aa_part" of neighboring amino acids 
+    of type "aa" """
+    min_baa = 4
+    for base_atom in base_residue.atoms():
+        atomname = base_atom.name
+        if atomname in RNAbaseheavyatoms[base_seq]:
+            base_coord = base_atom.coordinates()      
+            for atom in aa_residue.atoms():
+                aa_atom = atom.coordinates()
+                dist_baa = np.subtract(aa_atom,base_coord)
+                baa_scalar = np.linalg.norm(dist_baa)
+                #print baa_scalar
+                if baa_scalar <= min_baa:
+                    return True
+                        
+   
 def draw_base(base_seq, ax):
     """Connects atoms to draw neighboring bases and amino acids for 3D plots"""
      #creates lists of rotated base coordinates
@@ -170,7 +185,7 @@ def draw_base(base_seq, ax):
                 back_base_z.append(back_base[2])
             base_lines= ax.plot(back_base_x, back_base_y, back_base_z, label= 'Base')
             plt.setp(base_lines, 'color', 'g', 'linewidth', 1.0)
-            
+            #ax.text(9, 1, 1, base_residue)
         except:
             print "Missing residues"
             continue
@@ -220,7 +235,7 @@ def draw_aa_cent(aa, aa_part, ax):
         aa_center_z = 0
         n = 0
         
-        if aa_part == 'aa_sidechain':
+        if aa_part == 'aa_fg':
             connections = aa_connections
         elif aa_part == 'aa_backbone':
             connections = aa_backconnect
@@ -242,7 +257,7 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['2AW7']
+PDB_List = ['1S72']
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
@@ -252,12 +267,12 @@ if __name__=="__main__":
         structure = get_structure('E:\\Leontis\\Python scripts\\%s.cif' % PDB)
         base_seq = 'A'
         #chain = 'A'
-        aa = 'ALA'
-        aa_part = 'aa_sidechain'
+        aa = 'SER'
+        aa_part = 'aa_fg'
     
         bases = structure.residues(sequence= base_seq)
         amino_acids = structure.residues(sequence=aa)
-        list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, aa_part, 10)
+        list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, aa_part, 9)
     
         # 3D plots of base-aa interactions
         #fig = plt.figure()
