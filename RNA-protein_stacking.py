@@ -283,7 +283,7 @@ if __name__=="__main__":
     
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-                list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 6)
+                list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 5)
                 
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
