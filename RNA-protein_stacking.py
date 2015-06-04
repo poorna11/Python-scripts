@@ -147,6 +147,7 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center):
             print aa_residue"""
             #baa_dist_list = []
             #for aa_atom in aa_residue.atoms():
+        print base_residue, aa_residue
         for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
             aa_coord = aa_atom.coordinates()
             dist_baa = np.subtract(aa_coord,base_center)
@@ -154,7 +155,7 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center):
             baa_dist_list.append(baa_scalar)
         max_baa = max(baa_dist_list)
         min_baa = min(baa_dist_list)
-        print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
+        #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
         diff = max_baa - min_baa
         print "difference",diff
         return diff <= 3
@@ -282,7 +283,7 @@ if __name__=="__main__":
     
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-                list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 7)
+                list_aa, list_base, count = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 6)
                 
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
