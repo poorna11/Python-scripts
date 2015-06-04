@@ -141,23 +141,23 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center):
     c = base_y - 2
     d = base_y + 2
     if a <= aa_x <= b and c <= aa_y <= d:
-        base_fg_dist = []
-        for base_atom in base_residue.atoms():
+        baa_dist_list = []
+        """for base_atom in base_residue.atoms():
             base_coord = base_atom.coordinates()        
-            print aa_residue
-            #base_fg_dist = []
+            print aa_residue"""
+            #baa_dist_list = []
             #for aa_atom in aa_residue.atoms():
-            for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-                aa_coord = aa_atom.coordinates()
-                dist_baa = np.subtract(aa_coord,base_coord)
-                baa_scalar = np.linalg.norm(dist_baa)
-                base_fg_dist.append(baa_scalar)
-        max_baa = max(base_fg_dist)
-        min_baa = min(base_fg_dist)
+        for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+            aa_coord = aa_atom.coordinates()
+            dist_baa = np.subtract(aa_coord,base_center)
+            baa_scalar = np.linalg.norm(dist_baa)
+            baa_dist_list.append(baa_scalar)
+        max_baa = max(baa_dist_list)
+        min_baa = min(baa_dist_list)
         print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
         diff = max_baa - min_baa
         print "difference",diff
-        return diff <= 7.5
+        return diff <= 3
                 
 def draw_base(base_seq, ax):
     """Connects atoms to draw neighboring bases and amino acids for 3D plots"""
@@ -266,7 +266,7 @@ def draw_aa_cent(aa, aa_part, ax):
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
 PDB_List = ['5AJ3']
 base_seq_list = ['A','U','C','G']
-aa_list = ['TRP']
+aa_list = ['TYR','TRP','PHE']
 #aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
 
 fig = plt.figure()
