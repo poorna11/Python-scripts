@@ -68,14 +68,14 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cu
             dist_scalar = np.linalg.norm(dist_vector)
             #base_seq = base_residue.sequence
             if dist_scalar <= dist_cent_cutoff and \
-            test_stacking(base_residue, aa_residue, base_center,aa_center):
+            test_stacking(base_residue, aa_residue, base_center,aa_center, dist_cent_cutoff):
                 count_stack = count_stack + 1
                 tup1= (base_residue.unit_id(),aa_residue.unit_id())
                 list_base_aa.append(tup1)
                 
                  #writing out text file
-                text_output(base_residue, aa_residue)
-               
+                #text_output(base_residue, aa_residue)
+                
                 base_coordinates = {}
                 for base_atom in base_residue.atoms():
                     base_key = base_atom.name
@@ -93,19 +93,9 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cu
         
     if aaList_len == new_aaList_len:
         print "No neighbors detected in %s" % PDB
-              
-    print "No. of stacking interactions in %s:" % PDB, count_stack
     
     return list_aa_coord, list_base_coord, list_base_aa
 
-def text_output(base_residue, aa_residue):
-    with open('E:\\Leontis\\Python scripts\\proteinStack10_%s.txt' % PDB, 'a') as target:
-        result = str(base_residue.unit_id()) + ' ' + str(aa_residue.unit_id())                                
-        target.write(str(result))
-        target.write("\n")
-        target.close
-        
-    
 def translate_rotate(atom, base_center, base_residue):
      atom_coord = atom.coordinates()
      dist_translate = np.subtract(atom_coord, base_center)
@@ -118,7 +108,7 @@ def translate_rotate(atom, base_center, base_residue):
      coord = a.tolist()    
      return coord
      
-def test_stacking(base_residue, aa_residue, base_center, aa_center):
+def test_stacking(base_residue, aa_residue, base_center, aa_center, dist_cent_cutoff):
     """Detects stacking interaction between amino acids and RNA bases"""
     #base_center = base_residue.centers[base]
     #aa_center = aa_residue.centers[aa_fg]
@@ -126,10 +116,10 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center):
     aa_y = aa_center[1]
     base_x = base_center[0]
     base_y = base_center[1]
-    a = base_x - 3
-    b = base_x + 3
-    c = base_y - 3
-    d = base_y + 3
+    a = base_x - dist_cent_cutoff
+    b = base_x + dist_cent_cutoff
+    c = base_y - dist_cent_cutoff
+    d = base_y + dist_cent_cutoff
     if a <= aa_x <= b and c <= aa_y <= d:
         baa_dist_list = []
         
@@ -143,9 +133,27 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center):
         min_baa = min(baa_dist_list)
         #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
         diff = max_baa - min_baa
-        #print "difference",diff
-        return diff <= 3.5
-                
+        print "difference",diff
+        return diff <= 2.5
+
+def text_output(result_list):
+    with open('E:\\Leontis\\Python scripts\\proteinStack10_%s.txt' % PDB, 'wb') as target:
+        for result in result_list:
+            target.write(str(result))
+            target.write("\r\n")
+            target.close
+        
+def csv_output(result_list):
+    with open('E:\\Leontis\\Python scripts\\proteinStack_%s.csv' % PDB, 'wb') as csvfile:
+        fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for base_residue, aa_residue in result_list:
+                    base_component = str(base_residue).split("|")
+                    aa_component = str(aa_residue).split("|")
+                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4]})
+
+        
 def draw_base(base_seq, ax):
     """Connects atoms to draw neighboring bases and amino acids for 3D plots"""
      #creates lists of rotated base coordinates
@@ -253,7 +261,7 @@ def draw_aa_cent(aa, aa_part, ax):
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
 PDB_List = ['5AJ3']
 base_seq_list = ['A','U','C','G']
-aa_list = ['HIS']
+aa_list = ['TYR','TRP','PHE']
 #aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
 
 fig = plt.figure()
@@ -263,12 +271,7 @@ ax = fig.add_subplot(111, projection='3d')
 if __name__=="__main__":
     for PDB in PDB_List:
         structure = get_structure('E:\\Leontis\\Python scripts\\%s.cif' % PDB)
-        
-        #open out the result to csv file
-        csvfile = open('E:\\Leontis\\Python scripts\\proteinStack_%s.csv' % PDB, 'a') 
-        fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
+        result_nt_aa = []
         
         #inputs
         for base_seq in base_seq_list:
@@ -277,7 +280,7 @@ if __name__=="__main__":
     
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 6)
+                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 5)
                 
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
@@ -292,9 +295,11 @@ if __name__=="__main__":
                 ax.set_zlim3d(10, -15)
                 #plt.title('%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
                 plt.show()
-                #write out to the csv file
-                for base_residue, aa_residue in list_base_aa:
-                    base_component = str(base_residue).split("|")
-                    aa_component = str(aa_residue).split("|")
-                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4]})
-        csvfile.close()
+                
+                #making the list of resultant RNA-aa pairs
+                result_nt_aa.extend(list_base_aa)
+        
+        #writing out output files                
+        text_output(result_nt_aa)
+        csv_output(result_nt_aa)
+        
