@@ -11,6 +11,7 @@ from fr3d.definitions import Ribophos_connect
 from fr3d.definitions import aa_connections
 from fr3d.definitions import aa_backconnect
 from fr3d.definitions import aa_fg
+from fr3d.definitions import nt_backbone
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
@@ -24,20 +25,18 @@ def get_structure(filename):
         structure.infer_hydrogens()
         return structure
 
-def atom_dist(base_residue,aa_residue):
+def atom_dist_basepart(base_residue, aa_residue, atom_names):
     """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
     of type "aa" from each atom of base"""
-    min_baa = 4
-    for base_atom in base_residue.atoms():
-        base_coord = base_atom.coordinates()        
-        for atom in aa_residue.atoms():
-            aa_atom = atom.coordinates()
-            dist_baa = np.subtract(aa_atom,base_coord)
-            baa_scalar = np.linalg.norm(dist_baa)
-            #print baa_scalar
-            if baa_scalar <= min_baa:
-                return True
-                        
+    min_distance =5
+    for atom in base_residue.atoms():
+        for aa_atom in aa_residue.atoms():
+            # aa_atom = atom.coordinates()
+            distance = np.subtract(atom.coordinates(), aa_atom.coordinates())
+            distance = np.linalg.norm(distance)
+            return distance <= min_distance
+                
+#def find_neighbors(PDB, bases, base_atoms, amino_acids, aa, aa_part, dist_cent_cutoff):
 def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cutoff):
     """Finds all amino acids of type "aa" for which center of "aa_part" is within
     specified distance of center of bases of type "base" and returns superposed bases"""
@@ -52,8 +51,8 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cu
     new_aaList_len = None
      
     for base_residue in bases:
+        #base_center = base_residue.centers[tuple(base_atoms)]
         base_center = base_residue.centers[base_part]
-        #base_center = resi_center(base_residue)
         if base_center is None:
                 continue
         
@@ -67,29 +66,25 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cu
             dist_vector = np.subtract(base_center, aa_center)
             dist_scalar = np.linalg.norm(dist_vector)
             #base_seq = base_residue.sequence
-            if dist_scalar <= dist_cent_cutoff and \
-            test_stacking(base_residue, aa_residue, base_center,aa_center, dist_cent_cutoff):
-                count_stack = count_stack + 1
-                tup1= (base_residue.unit_id(),aa_residue.unit_id())
-                list_base_aa.append(tup1)
+            if dist_scalar <= dist_cent_cutoff and test_stacking(base_residue, aa_residue, base_center,aa_center, dist_cent_cutoff):
+                    count_stack = count_stack + 1
+                    tup1= (base_residue.unit_id(),aa_residue.unit_id())
+                    list_base_aa.append(tup1)
+                                
+                    base_coordinates = {}
+                    for base_atom in base_residue.atoms():
+                        base_key = base_atom.name
+                        base_coordinates[base_key]= translate_rotate(base_atom, base_center, base_residue)
                 
-                 #writing out text file
-                #text_output(base_residue, aa_residue)
+                    list_base_coord.append(base_coordinates)
                 
-                base_coordinates = {}
-                for base_atom in base_residue.atoms():
-                    base_key = base_atom.name
-                    base_coordinates[base_key]= translate_rotate(base_atom, base_center, base_residue)
-                
-                list_base_coord.append(base_coordinates)
-                
-                aa_coordinates = {}                           
-                for atom in aa_residue.atoms():
-                    key = atom.name
-                    aa_coordinates[key]= translate_rotate(atom, base_center, base_residue)
+                    aa_coordinates = {}                           
+                    for atom in aa_residue.atoms():
+                        key = atom.name
+                        aa_coordinates[key]= translate_rotate(atom, base_center, base_residue)
                     #print key, translate_rotate(atom, base_center, base_residue)
-                list_aa_coord.append(aa_coordinates)
-                new_aaList_len = len(list_aa_coord)
+                    list_aa_coord.append(aa_coordinates)
+                    new_aaList_len = len(list_aa_coord)
         
     if aaList_len == new_aaList_len:
         print "No neighbors detected in %s" % PDB
@@ -126,8 +121,11 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center, dist_cent_cu
         print base_residue, aa_residue
         for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
             aa_coord = aa_atom.coordinates()
+            #aa_z = aa_coord[2]
+            dist_baa = np.subtract(aa_coord,base_center)
             dist_baa = np.subtract(aa_coord,base_center)
             baa_scalar = np.linalg.norm(dist_baa)
+            #baa_dist_list.append(aa_z)
             baa_dist_list.append(baa_scalar)
         max_baa = max(baa_dist_list)
         min_baa = min(baa_dist_list)
@@ -137,7 +135,7 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center, dist_cent_cu
         return diff <= 2.5
 
 def text_output(result_list):
-    with open('E:\\Leontis\\Python scripts\\proteinStack10_%s.txt' % PDB, 'wb') as target:
+    with open('E:\\Leontis\\Python scripts\\proteinStack_%s.txt' % PDB, 'wb') as target:
         for result in result_list:
             target.write(str(result))
             target.write("\r\n")
@@ -152,6 +150,14 @@ def csv_output(result_list):
                     base_component = str(base_residue).split("|")
                     aa_component = str(aa_residue).split("|")
                     writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4]})
+
+def csv_output_unitid(result_list):
+    with open('E:\\Leontis\\Python scripts\\proteinStackHTML_%s.csv' % PDB, 'wb') as csvfile:
+        fieldnames = ['RNA', 'AA']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for base_residue, aa_residue in result_list:                    
+            writer.writerow({'RNA': base_residue,'AA': aa_residue})
 
         
 def draw_base(base_seq, ax):
@@ -261,7 +267,7 @@ def draw_aa_cent(aa, aa_part, ax):
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
 PDB_List = ['5AJ3']
 base_seq_list = ['A','U','C','G']
-aa_list = ['TYR','TRP','PHE']
+aa_list = ['ARG']
 #aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
 
 fig = plt.figure()
@@ -277,10 +283,19 @@ if __name__=="__main__":
         for base_seq in base_seq_list:
             for aa in aa_list:
                 aa_part = 'aa_fg'
+                base_part = 'nt_backbone'
+                
+                residue_atoms = []
+                if base_part == 'base':
+                    residue_atoms = RNAbaseheavyatoms[base_seq]
+                elif base_part == 'nt_backbone':
+                    residue_atoms = nt_backbone[base_seq]
+                    
     
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 5)
+                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 4)
+                #coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 5)
                 
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
@@ -302,4 +317,5 @@ if __name__=="__main__":
         #writing out output files                
         text_output(result_nt_aa)
         csv_output(result_nt_aa)
+        #csv_output_unitid(result_nt_aa)
         
