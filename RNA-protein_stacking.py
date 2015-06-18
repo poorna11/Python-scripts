@@ -267,7 +267,7 @@ def draw_aa_cent(aa, aa_part, ax):
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
 PDB_List = ['5AJ3']
 base_seq_list = ['A','U','C','G']
-aa_list = ['ARG']
+aa_list = ['TRP']
 #aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
 
 fig = plt.figure()
@@ -294,9 +294,10 @@ if __name__=="__main__":
     
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 4)
+
+                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 10)
                 #coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 5)
-                
+
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
                 draw_aa(aa, ax)
