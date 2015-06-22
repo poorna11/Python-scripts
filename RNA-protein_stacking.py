@@ -28,16 +28,18 @@ def get_structure(filename):
 def atom_dist_basepart(base_residue, aa_residue, atom_names):
     """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
     of type "aa" from each atom of base"""
-    min_distance =5
-    for atom in base_residue.atoms():
-        for aa_atom in aa_residue.atoms():
+    min_distance = 6
+    for atom in base_residue.atoms(name=atom_names):
+        for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
             # aa_atom = atom.coordinates()
             distance = np.subtract(atom.coordinates(), aa_atom.coordinates())
             distance = np.linalg.norm(distance)
-            return distance <= min_distance
+            print base_residue, aa_residue
+            print "atomic distance", distance
+            if distance <= min_distance:
+                return True
                 
-#def find_neighbors(PDB, bases, base_atoms, amino_acids, aa, aa_part, dist_cent_cutoff):
-def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cutoff):
+def find_neighbors(PDB, bases, base_atoms, amino_acids, aa, aa_part, dist_cent_cutoff):
     """Finds all amino acids of type "aa" for which center of "aa_part" is within
     specified distance of center of bases of type "base" and returns superposed bases"""
     #count_total = 0
@@ -51,8 +53,8 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cu
     new_aaList_len = None
      
     for base_residue in bases:
-        #base_center = base_residue.centers[tuple(base_atoms)]
-        base_center = base_residue.centers[base_part]
+        base_center = base_residue.centers[tuple(base_atoms)]
+        #base_center = resi_center(base_residue)
         if base_center is None:
                 continue
         
@@ -66,24 +68,35 @@ def find_neighbors(PDB, bases, base_part, amino_acids, aa, aa_part, dist_cent_cu
             dist_vector = np.subtract(base_center, aa_center)
             dist_scalar = np.linalg.norm(dist_vector)
             #base_seq = base_residue.sequence
-            if dist_scalar <= dist_cent_cutoff and test_stacking(base_residue, aa_residue, base_center,aa_center, dist_cent_cutoff):
-                    count_stack = count_stack + 1
-                    tup1= (base_residue.unit_id(),aa_residue.unit_id())
-                    list_base_aa.append(tup1)
-                                
+            if dist_scalar <= dist_cent_cutoff and \
+               atom_dist_basepart(base_residue, aa_residue, base_atoms):
+                
                     base_coordinates = {}
                     for base_atom in base_residue.atoms():
                         base_key = base_atom.name
                         base_coordinates[base_key]= translate_rotate(base_atom, base_center, base_residue)
-                
-                    list_base_coord.append(base_coordinates)
-                
+
                     aa_coordinates = {}                           
                     for atom in aa_residue.atoms():
                         key = atom.name
-                        aa_coordinates[key]= translate_rotate(atom, base_center, base_residue)
+                        aa_coordinates[key] = translate_rotate(atom, base_center, base_residue)
+                    
+                    
+                    if test_stacking(base_residue, aa_residue, base_center,
+                    aa_center, dist_cent_cutoff):
+
+                        count_stack = count_stack + 1
+                        tup1= (base_residue.unit_id(),aa_residue.unit_id())
+                        list_base_aa.append(tup1)
+                        
+                        for base_atom in base_residue.atoms():
+                            list_base_coord.append(base_coordinates)
+                        for aa_atom in aa_residue.atoms():
+                            list_aa_coord.append(aa_coordinates)
+                        
+                    
                     #print key, translate_rotate(atom, base_center, base_residue)
-                    list_aa_coord.append(aa_coordinates)
+                    #list_aa_coord.append(aa_coordinates)
                     new_aaList_len = len(list_aa_coord)
         
     if aaList_len == new_aaList_len:
@@ -120,19 +133,15 @@ def test_stacking(base_residue, aa_residue, base_center, aa_center, dist_cent_cu
         
         print base_residue, aa_residue
         for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-            aa_coord = aa_atom.coordinates()
-            #aa_z = aa_coord[2]
-            dist_baa = np.subtract(aa_coord,base_center)
-            dist_baa = np.subtract(aa_coord,base_center)
-            baa_scalar = np.linalg.norm(dist_baa)
-            #baa_dist_list.append(aa_z)
-            baa_dist_list.append(baa_scalar)
+            aa_z = aa_atom.z
+            baa_dist_list.append(aa_z)
+            #baa_dist_list.append(baa_scalar)
         max_baa = max(baa_dist_list)
         min_baa = min(baa_dist_list)
         #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
         diff = max_baa - min_baa
         print "difference",diff
-        return diff <= 2.5
+        return diff <= 4
 
 def text_output(result_list):
     with open('E:\\Leontis\\Python scripts\\proteinStack_%s.txt' % PDB, 'wb') as target:
@@ -281,9 +290,9 @@ if __name__=="__main__":
         
         #inputs
         for base_seq in base_seq_list:
+            base_part = 'base'
             for aa in aa_list:
                 aa_part = 'aa_fg'
-                base_part = 'nt_backbone'
                 
                 residue_atoms = []
                 if base_part == 'base':
@@ -294,10 +303,8 @@ if __name__=="__main__":
     
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-
-                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, 'base', amino_acids, aa, aa_part, 10)
-                #coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 5)
-
+                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 5)
+                
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
                 draw_aa(aa, ax)
