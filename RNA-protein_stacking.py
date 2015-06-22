@@ -34,8 +34,8 @@ def atom_dist_basepart(base_residue, aa_residue, atom_names):
             # aa_atom = atom.coordinates()
             distance = np.subtract(atom.coordinates(), aa_atom.coordinates())
             distance = np.linalg.norm(distance)
-            print base_residue, aa_residue
-            print "atomic distance", distance
+            #print base_residue, aa_residue
+            #print "atomic distance", distance
             if distance <= min_distance:
                 return True
                 
@@ -72,18 +72,18 @@ def find_neighbors(PDB, bases, base_atoms, amino_acids, aa, aa_part, dist_cent_c
                atom_dist_basepart(base_residue, aa_residue, base_atoms):
                 
                     base_coordinates = {}
+                    rotation_matrix = base_residue.rotation_matrix
                     for base_atom in base_residue.atoms():
                         base_key = base_atom.name
-                        base_coordinates[base_key]= translate_rotate(base_atom, base_center, base_residue)
+                        base_coordinates[base_key]= translate_rotate(base_atom, base_center, rotation_matrix)
 
                     aa_coordinates = {}                           
                     for atom in aa_residue.atoms():
                         key = atom.name
-                        aa_coordinates[key] = translate_rotate(atom, base_center, base_residue)
+                        aa_coordinates[key] = translate_rotate(atom, base_center, rotation_matrix)
                     
                     
-                    if test_stacking(base_residue, aa_residue, base_center,
-                    aa_center, dist_cent_cutoff):
+                    if test_stacking(base_residue, aa_residue, aa_coordinates):
 
                         count_stack = count_stack + 1
                         tup1= (base_residue.unit_id(),aa_residue.unit_id())
@@ -104,11 +104,11 @@ def find_neighbors(PDB, bases, base_atoms, amino_acids, aa, aa_part, dist_cent_c
     
     return list_aa_coord, list_base_coord, list_base_aa
 
-def translate_rotate(atom, base_center, base_residue):
+def translate_rotate(atom, reference, rotation_matrix):
      atom_coord = atom.coordinates()
-     dist_translate = np.subtract(atom_coord, base_center)
+     dist_translate = np.subtract(atom_coord, reference)
      dist_aa_matrix = np.matrix(dist_translate)
-     rotation_matrix = base_residue.rotation_matrix
+     #rotation_matrix = base_residue.rotation_matrix
      #transposed_rotation = rotation_matrix.transpose()
      rotated_atom = dist_aa_matrix * rotation_matrix
      coord_array = np.array(rotated_atom)
@@ -116,32 +116,35 @@ def translate_rotate(atom, base_center, base_residue):
      coord = a.tolist()    
      return coord
      
-def test_stacking(base_residue, aa_residue, base_center, aa_center, dist_cent_cutoff):
+def test_stacking(base_residue, aa_residue, aa_coordinates):
+    
     """Detects stacking interaction between amino acids and RNA bases"""
-    #base_center = base_residue.centers[base]
-    #aa_center = aa_residue.centers[aa_fg]
-    aa_x = aa_center[0]
-    aa_y = aa_center[1]
-    base_x = base_center[0]
-    base_y = base_center[1]
-    a = base_x - dist_cent_cutoff
-    b = base_x + dist_cent_cutoff
-    c = base_y - dist_cent_cutoff
-    d = base_y + dist_cent_cutoff
-    if a <= aa_x <= b and c <= aa_y <= d:
-        baa_dist_list = []
-        
+    #creates a circle around the rotated base center, which is now at (0,0,0)
+    squared_xy_dist_list = []
+    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+        key = aa_atom.name
+        aa_x= aa_coordinates[key][0]
+        aa_y= aa_coordinates[key][1]
+        squared_xy_dist = (aa_x**2) + (aa_y**2)
+        squared_xy_dist_list.append(squared_xy_dist)
+    #print aa_residue, min(squared_xy_dist_list)
+    if min(squared_xy_dist_list) <= 3:
         print base_residue, aa_residue
+        
+        baa_dist_list = []     
+        
         for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-            aa_z = aa_atom.z
-            baa_dist_list.append(aa_z)
-            #baa_dist_list.append(baa_scalar)
+            key = aa_atom.name
+            aa_z = aa_coordinates[key][2]
+            baa_dist_list.append(aa_z)        
         max_baa = max(baa_dist_list)
         min_baa = min(baa_dist_list)
         #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
         diff = max_baa - min_baa
         print "difference",diff
-        return diff <= 4
+        return diff <= 2.5
+    else:
+        return False
 
 def text_output(result_list):
     with open('E:\\Leontis\\Python scripts\\proteinStack_%s.txt' % PDB, 'wb') as target:
@@ -303,7 +306,7 @@ if __name__=="__main__":
     
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 5)
+                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 6)
                 
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
