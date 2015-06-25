@@ -12,6 +12,7 @@ from fr3d.definitions import aa_connections
 from fr3d.definitions import aa_backconnect
 from fr3d.definitions import aa_fg
 from fr3d.definitions import nt_backbone
+from fr3d.definitions import tilt_cutoff
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
@@ -28,7 +29,7 @@ def get_structure(filename):
 def atom_dist_basepart(base_residue, aa_residue, atom_names):
     """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
     of type "aa" from each atom of base"""
-    min_distance = 6
+    min_distance = 4
     for atom in base_residue.atoms(name=atom_names):
         for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
             # aa_atom = atom.coordinates()
@@ -129,7 +130,7 @@ def test_stacking(base_residue, aa_residue, aa_coordinates):
         squared_xy_dist_list.append(squared_xy_dist)
     #print aa_residue, min(squared_xy_dist_list)
     if min(squared_xy_dist_list) <= 3:
-        print base_residue, aa_residue
+        print base_residue, aa_residue, min(squared_xy_dist_list)
         
         baa_dist_list = []     
         
@@ -142,7 +143,7 @@ def test_stacking(base_residue, aa_residue, aa_coordinates):
         #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
         diff = max_baa - min_baa
         print "difference",diff
-        return diff <= 2.5
+        return diff <= tilt_cutoff[aa_residue.sequence]
     else:
         return False
 
@@ -279,8 +280,9 @@ def draw_aa_cent(aa, aa_part, ax):
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
 PDB_List = ['5AJ3']
 base_seq_list = ['A','U','C','G']
-aa_list = ['TRP']
-#aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
+#aa_list = ['CYS']
+aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
+
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
@@ -302,16 +304,21 @@ if __name__=="__main__":
                     residue_atoms = RNAbaseheavyatoms[base_seq]
                 elif base_part == 'nt_backbone':
                     residue_atoms = nt_backbone[base_seq]
-                    
-    
+                
+                """if aa in set(['TYR','TRP','PHE','HIS','PRO']):
+                    dist_cent_cutoff = 7
+                elif aa in set(['ALA','VAL','ILE','LEU','ARG','LYS','ASP','GLU','ASN','GLN','THR','SER','CYS']):
+                    dist_cent_cutoff = 6"""
+            
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
-                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 6)
+                
+                coord_list_aa, coord_list_base, list_base_aa = find_neighbors(PDB, bases, residue_atoms, amino_acids, aa, aa_part, 7)
                 
                 # 3D plots of base-aa interactions
                 draw_base(base_seq, ax)
                 draw_aa(aa, ax)
-                draw_aa_cent(aa, aa_part, ax)
+                #draw_aa_cent(aa, aa_part, ax)
                 
                 ax.set_xlabel('X Axis')
                 ax.set_ylabel('Y Axis')
