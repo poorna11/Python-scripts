@@ -13,6 +13,7 @@ from fr3d.definitions import aa_backconnect
 from fr3d.definitions import aa_fg
 from fr3d.definitions import nt_backbone
 from fr3d.definitions import tilt_cutoff
+from fr3d.definitions import Normal_residue
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
@@ -84,7 +85,7 @@ def find_neighbors(PDB, bases, base_atoms, amino_acids, aa, aa_part, dist_cent_c
                         aa_coordinates[key] = translate_rotate(atom, base_center, rotation_matrix)
                     
                     
-                    if test_stacking(base_residue, aa_residue, aa_coordinates):
+                    if test_stacking(base_residue, aa_residue, base_coordinates, aa_coordinates):
 
                         count_stack = count_stack + 1
                         tup1= (base_residue.unit_id(),aa_residue.unit_id())
@@ -116,8 +117,24 @@ def translate_rotate(atom, reference, rotation_matrix):
      a = coord_array.flatten()
      coord = a.tolist()    
      return coord
-     
-def test_stacking(base_residue, aa_residue, aa_coordinates):
+
+def angle_between_planes (vec1, vec2):
+    cosang = np.dot(vec1, vec2)
+    sinang = np.linalg.norm(np.cross(vec1, vec2))
+    angle = np.arctan2(sinang, cosang)
+    return angle
+
+def vector_calculation(residue):
+    key = residue.sequence
+    P1 = residue.centers[Normal_residue[key][0]]
+    P2 = residue.centers[Normal_residue[key][1]]
+    P3 = residue.centers[Normal_residue[key][2]]
+    #print P1, P2, P3
+    vector = np.cross((P2 - P1),(P3-P1))
+    return vector
+    
+    
+def test_stacking(base_residue, aa_residue, base_coordinates, aa_coordinates):
     
     """Detects stacking interaction between amino acids and RNA bases"""
     #creates a circle around the rotated base center, which is now at (0,0,0)
@@ -128,25 +145,36 @@ def test_stacking(base_residue, aa_residue, aa_coordinates):
         aa_y= aa_coordinates[key][1]
         squared_xy_dist = (aa_x**2) + (aa_y**2)
         squared_xy_dist_list.append(squared_xy_dist)
-    #print aa_residue, min(squared_xy_dist_list)
+    
     if min(squared_xy_dist_list) <= 3:
-        print base_residue, aa_residue, min(squared_xy_dist_list)
-        
-        baa_dist_list = []     
-        
-        for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-            key = aa_atom.name
-            aa_z = aa_coordinates[key][2]
-            baa_dist_list.append(aa_z)        
-        max_baa = max(baa_dist_list)
-        min_baa = min(baa_dist_list)
-        #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
-        diff = max_baa - min_baa
-        print "difference",diff
-        return diff <= tilt_cutoff[aa_residue.sequence]
-    else:
-        return False
+        if aa_residue.sequence in set (["TRP", "TYR", "PHE","HIS","ARG"]):
+            return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
+        else:
+            return stacking_tilt(aa_residue, aa_coordinates)
 
+def stacking_tilt(aa_residue, aa_coordinates):
+    baa_dist_list = []     
+        
+    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+        key = aa_atom.name
+        aa_z = aa_coordinates[key][2]
+        baa_dist_list.append(aa_z)        
+    max_baa = max(baa_dist_list)
+    min_baa = min(baa_dist_list)
+    #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
+    diff = max_baa - min_baa
+    #print "difference",diff
+    return diff <= tilt_cutoff[aa_residue.sequence]
+            #print base_residue, aa_residue, min(squared_xy_dist_list)
+def stacking_angle (base_residue, aa_residue, min_dist):
+    vec1 = vector_calculation(base_residue)
+    vec2 = vector_calculation(aa_residue)
+                
+    angle = angle_between_planes(vec1, vec2)
+    print base_residue, aa_residue, min_dist, angle
+    if angle <=0.79 or 2.35 <= angle <= 3.15:
+        return True
+    
 def text_output(result_list):
     with open('E:\\Leontis\\Python scripts\\proteinStack_%s.txt' % PDB, 'wb') as target:
         for result in result_list:
@@ -280,7 +308,7 @@ def draw_aa_cent(aa, aa_part, ax):
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
 PDB_List = ['5AJ3']
 base_seq_list = ['A','U','C','G']
-#aa_list = ['CYS']
+#aa_list = ['TRP']
 aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
 
 
@@ -305,11 +333,7 @@ if __name__=="__main__":
                 elif base_part == 'nt_backbone':
                     residue_atoms = nt_backbone[base_seq]
                 
-                """if aa in set(['TYR','TRP','PHE','HIS','PRO']):
-                    dist_cent_cutoff = 7
-                elif aa in set(['ALA','VAL','ILE','LEU','ARG','LYS','ASP','GLU','ASN','GLN','THR','SER','CYS']):
-                    dist_cent_cutoff = 6"""
-            
+                         
                 bases = structure.residues(sequence= base_seq)
                 amino_acids = structure.residues(sequence=aa)
                 
