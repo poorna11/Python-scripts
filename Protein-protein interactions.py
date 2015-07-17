@@ -7,7 +7,10 @@ Created on Wed Nov 26 12:44:30 2014 @author: Poorna
 from fr3d.cif.reader import Cif
 import numpy as np
 #from fr3d.definitions import aa_fg
+from fr3d.definitions import aa_backconnect
+from fr3d.definitions import ChainNames
 import csv
+
 
 def get_structure(filename):
     with open(filename, 'rb') as raw:
@@ -36,83 +39,125 @@ def find_neighbors(aa1, aa1_part, aa2, aa2_part, dist_cent_cutoff):
     """Finds all amino acids of type "aa" for which center of "aa_part" is within
     specified distance of center of bases of type "base" and returns superposed bases"""
     
-    count = 0
-    aas = list(aa2)
+    #count = 0
+    aa1s = list (aa1)
+    aa2s = list(aa2)
+    list_aa1_aa2 = []
     aa2List_len = None
     new_aa2List_len = None
-    list_aa1_aa2 = []
     
-    for aa1_residue in aa1:
+    
+    for aa1_residue in aa1s:
         aa1_center = aa1_residue.centers[aa1_part]
         if aa1_center is None:
                 continue
+        #The following statemnt checks if the aa sequence is a key in the dictionary aa_backconnect
+        if aa1_residue.sequence not in aa_backconnect:
+            continue
+                
+        for aa2_residue in aa2s:
+            if aa2_residue.sequence not in aa_backconnect:
+                 continue
+            
+            if aa1_residue.chain == aa2_residue.chain:
+                continue
         
-        
-        for aa2_residue in aas:
             aa2_center = aa2_residue.centers[aa2_part]
+            
             if aa2_center is None:
                 continue
+            
+            #count_interactions = open('E:\\Leontis\\Python scripts\\%s.csv' % PDB, 'wb')
             
             dist_vector = np.subtract(aa2_center,aa1_center)
             dist_scalar = np.linalg.norm(dist_vector)
             if dist_scalar <= dist_cent_cutoff and \
             atom_dist(aa1_residue, aa2_residue):
-                count = count + 1
-                print aa1_residue, aa2_residue
+            
+                #print aa1_residue, aa2_residue
                 
-                tup1= (aa1_residue.unit_id(),aa2_residue.unit_id())
-                list_aa1_aa2.append(tup1)
+                tup1= (aa1_residue, aa2_residue)
+                sorted_tup1 = tuple(sorted(tup1))
+                
+                if sorted_tup1 not in list_aa1_aa2:
+                    list_aa1_aa2.append(sorted_tup1)
+                                               
+                new_aa2List_len = len(list_aa1_aa2)
                 
     if aa2List_len == new_aa2List_len:
         print "No neighbors detected"
               
-    return count, list_aa1_aa2
+    return list_aa1_aa2
+
+
+def chainwise_interactions(count_list, PDB):
+    chain_count = {}
     
-def test_stacking(aa1_center, aa2_center):
-    """Detects stacking interaction between amino acids and RNA bases"""
-    aa2_x = aa2_center[0]
-    aa2_y = aa2_center[1]
-    aa1_x = aa1_center[0]
-    aa1_y = aa1_center[1]
-    a = aa1_x - 3
-    b = aa1_x + 3
-    c = aa1_y - 3
-    d = aa1_y + 3
-    return a <= aa2_x <= b and c <= aa2_y <= d
+    for aa1, aa2 in count_list:
+        chain1 = ChainNames[PDB][aa1.chain]
+        chain2 = ChainNames[PDB][aa2.chain]
+        key = chain1, chain2
+        sorted_key = tuple(sorted(key))
+        #sorted is an in-built function that sorts the strings of the key in an order 
+        #and produces a list of strings. Tuple converts that list to a tuple
+
+        if sorted_key not in chain_count:
+            #count = 1
+            chain_count[sorted_key]= 1
+            #tup = (chain1, chain2, count)
+            #chainwise_output.append(tup)
+        else:
+            chain_count[sorted_key] += 1
+            # a= a+1 is same as a +=1
             
+    #print chain_count
+    return chain_count
+
+def chainwise_interactions_csv(result_dict):
+    with open('E:\\Leontis\\Python scripts\\Outputs\\Chainwise-%s.csv' % PDB, 'wb') as csvfile:
+        fieldnames = ['Chain1 ID', 'Chain2 ID', 'No. of interactions']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for (aa1_chain, aa2_chain), count in result_dict.items():
+            writer.writerow({'Chain1 ID': aa1_chain, 'Chain2 ID':aa2_chain,'No. of interactions':count})    
+                    
 def csv_output(result_list):
-    with open('E:\\FRET\\protein-protein_%s.csv' % PDB, 'wb') as csvfile:
+    with open('E:\\Leontis\\Python scripts\\Outputs\\%s.csv' % PDB, 'wb') as csvfile:
         fieldnames = ['Protein1 Chain ID', 'AA1 residue','AA1 residue number','Protein2 Chain ID', 'AA2 residue','AA2 residue number']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for aa1_residue, aa2_residue in result_list:
-                    aa1_component = str(aa1_residue).split("|")
-                    aa2_component = str(aa2_residue).split("|")
-                    writer.writerow({'Protein1 Chain ID': aa1_component[2], 'AA1 residue':aa1_component[3],'AA1 residue number': aa1_component[4],'Protein2 Chain ID':aa2_component[2],'AA2 residue': aa2_component[3],'AA2 residue number': aa2_component[4]})    
+                    aa1_component = str(aa1_residue.unit_id()).split("|")
+                    aa2_component = str(aa2_residue.unit_id()).split("|")
+                                        
+                    writer.writerow({'Protein1 Chain ID': ChainNames[PDB][aa1_component[2]], 'AA1 residue':aa1_component[3],'AA1 residue number': aa1_component[4],'Protein2 Chain ID':ChainNames[PDB][aa2_component[2]],'AA2 residue': aa2_component[3],'AA2 residue number': aa2_component[4]})    
 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['3LVL']
-aa1_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
-#aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
-aa2_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
+PDB_List = ['3I8G']
+aa_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
+#aa_seq_list = ['MET', 'VAL']
+#aa2_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 
 """Inputs base, amino acid, aa_part of interest and cut-off distance for subsequent functions"""   
 if __name__=="__main__":
     
     for PDB in PDB_List:
-        structure = get_structure('E:\\FRET\\IscU figures\\%s.cif' % PDB)
+        structure = get_structure('E:\\Leontis\\Python scripts\\CIF\\%s.cif' % PDB)
         result_aa = []
-        for aa1_seq in aa1_seq_list:
-            for aa2_seq in aa2_seq_list:
-                aa1_part = 'aa_fg'
-                aa2_part = 'aa_fg'
+        count_chain = []
+        aa1_part = 'aa_fg'
+        aa2_part = 'aa_fg'
         
-                chain1 = 'A'
-                chain2 = 'B'
+        #chain1 = 'A'
+        #chain2 = 'B'
             
-                aa1 = structure.residues(chain = chain1, sequence = aa1_seq, symmetry = '1_555')
-                aa2 = structure.residues(chain = chain2, sequence = aa2_seq, symmetry = '1_555')
-                count, list_aa1_aa2 = find_neighbors(aa1, aa1_part, aa2, aa2_part, 10)
-                result_aa.extend(list_aa1_aa2)
-        
+        aa1 = structure.residues(sequence = aa_seq_list, symmetry = '1_555')
+        aa2 = structure.residues(sequence = aa_seq_list, symmetry = '1_555')
+                
+        list_aa1_aa2 = find_neighbors(aa1, aa1_part, aa2, aa2_part, 10)
+                
+        result_aa.extend(list_aa1_aa2)
+                       
         csv_output(result_aa)
+        chainwise_interactions_csv(chainwise_interactions(result_aa, PDB))
+        
