@@ -161,13 +161,15 @@ def pseudobase_pairing(base_residue, aa_residue, aa_coordinates):
         squared_xy_dist_list.append(squared_xy_dist)
         
         aa_z.append(aa_coordinates[key][2])
+        
+    mean_z = np.mean(aa_z)
     
-    print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list)
-    if 9.6< min(squared_xy_dist_list)< 25.0 and -0.6 <= max(aa_z) < 2.0:
+    #print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
+    if 1.19 < min(squared_xy_dist_list)< 32.0 and -1.3 <= mean_z < 1.35:
         if aa_residue.sequence in set (["ASP", "GLU", "ASN", "GLN", "HIS", "ARG", "LYS", "SER", "TYR"]):
             angle= stacking_angle(base_residue, aa_residue)
-            print base_residue.unit_id(), aa_residue.unit_id(), angle, max(aa_z)
-            return 0<= angle <= 0.62 or 2.5 <= angle <= 3.14
+            print base_residue.unit_id(), aa_residue.unit_id(), angle
+            return -1.3 <= angle <= 0.72 or 2.4 <= angle <= 3.14
 
 def stacking_angle (base_residue, aa_residue):
     vec1 = vector_calculation(base_residue)
@@ -395,10 +397,10 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['5AJ3']
+PDB_List = ['3I8G']
 base_seq_list = ['A','U','C','G']
 #aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
-aa_list = ["ASP"]
+aa_list = ["ASP", "GLU", "ASN", "GLN", "HIS", "ARG", "LYS", "SER", "TYR"]
 
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')

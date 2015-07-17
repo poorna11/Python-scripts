@@ -134,7 +134,7 @@ def csv_output(result_list):
 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
 PDB_List = ['3I8G']
-aa_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
+aa_seq_list = ['ALA','VAL','ARG']
 #aa_seq_list = ['MET', 'VAL']
 #aa2_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 
@@ -158,6 +158,6 @@ if __name__=="__main__":
                 
         result_aa.extend(list_aa1_aa2)
                        
-        csv_output(result_aa)
-        chainwise_interactions_csv(chainwise_interactions(result_aa, PDB))
-        
+        #csv_output(result_aa)
+        #chainwise_interactions_csv(chainwise_interactions(result_aa, PDB))
+        print chainwise_interactions(result_aa, PDB)
