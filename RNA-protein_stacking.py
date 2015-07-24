@@ -14,6 +14,7 @@ from fr3d.definitions import aa_fg
 from fr3d.definitions import nt_backbone
 from fr3d.definitions import tilt_cutoff
 from fr3d.definitions import Normal_residue
+from fr3d.definitions import ChainNames
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
@@ -176,24 +177,24 @@ def stacking_angle (base_residue, aa_residue, min_dist):
         return True
     
 def text_output(result_list):
-    with open('E:\\Leontis\\Python scripts\\proteinStack_%s.txt' % PDB, 'wb') as target:
+    with open('E:\\Leontis\\Python scripts\\Outputs\\proteinStack_%s.txt' % PDB, 'wb') as target:
         for result in result_list:
             target.write(str(result))
             target.write("\r\n")
             target.close
         
 def csv_output(result_list):
-    with open('E:\\Leontis\\Python scripts\\proteinStack_%s.csv' % PDB, 'wb') as csvfile:
+    with open('E:\\Leontis\\Python scripts\\Outputs\\proteinStack_%s.csv' % PDB, 'wb') as csvfile:
         fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for base_residue, aa_residue in result_list:
                     base_component = str(base_residue).split("|")
                     aa_component = str(aa_residue).split("|")
-                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4]})
+                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':ChainNames[PDB][aa_component[2]],'AA residue': aa_component[3],'AA residue number': aa_component[4]})
 
 def csv_output_unitid(result_list):
-    with open('E:\\Leontis\\Python scripts\\proteinStackHTML_%s.csv' % PDB, 'wb') as csvfile:
+    with open('E:\\Leontis\\Python scripts\\Outputs\\proteinStackHTML_%s.csv' % PDB, 'wb') as csvfile:
         fieldnames = ['RNA', 'AA']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -306,7 +307,7 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['3J9M']
+PDB_List = ['3I8G']
 base_seq_list = ['A','U','C','G']
 #aa_list = ['TRP']
 aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS']
@@ -318,7 +319,7 @@ ax = fig.add_subplot(111, projection='3d')
 """Inputs base, amino acid, aa_part of interest and cut-off distance for subsequent functions"""   
 if __name__=="__main__":
     for PDB in PDB_List:
-        structure = get_structure('E:\\Leontis\\Python scripts\\%s.cif' % PDB)
+        structure = get_structure('E:\\Leontis\\Python scripts\\CIF\\%s.cif' % PDB)
         result_nt_aa = []
         
         #inputs
