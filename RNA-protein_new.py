@@ -77,6 +77,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     new_aaList_len = None
     list_base_aa = []
     #perpendicular_interactions = []
+    helix_list = []
     
     #target = open('E:\\Leontis\\Python scripts\\RNAprotein-count_%s.txt' % PDB, 'a')
     for base_residue in bases:
@@ -123,19 +124,27 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                     aa_coordinates[key]= translate_rotate(atom, base_center, rotation_matrix)
                     #print key, translate_rotate(atom, base_center, base_residue)
                 
-                """if aa_residue.sequence in (["LYS","ASN","GLN","HIS","PHE","TYR","TRP"]):
-                    nt_aa_angle= calculate_angle(base_residue, aa_residue)
-                    if 1.4 <= nt_aa_angle <= 1.65:
-                        perpendicular_pairs = base_residue.unit_id(),aa_residue.unit_id()
-                        perpendicular_interactions.append(perpendicular_pairs)"""
+                              
+                interaction = type_of_interaction(base_residue, aa_residue, aa_coordinates)
                 
-                
-                if pseudobase_pairing(base_residue, aa_residue, aa_coordinates):
-                    """tup1= (base_residue.unit_id(),aa_residue.unit_id())
-                    list_base_aa.append(tup1)"""
-                    edge = detect_edge(base_residue, aa_residue, aa_coordinates)
+                #csv reader for helix-loop classification
+                with open('E:\\Leontis\\Python scripts\\CIF\\5AJ3.csv', 'rb') as f:
+                    reader = csv.reader(f)
                     
-                    tup1= (base_residue.unit_id(),aa_residue.unit_id(), edge)
+                    for entry in reader:
+                        helix_list.extend(entry)
+                
+                if interaction == "pseudopair" or interaction == "perpendicular" or interaction == "stacked":
+                    
+                    #edge = detect_edge(base_residue, aa_residue, aa_coordinates)
+                    
+                    """if base_residue.unit_id() in helix_list:
+                        secondary_structure= "Helix"
+                    else:
+                        secondary_structure= "Loop"
+                        """
+                    
+                    tup1= (base_residue, aa_residue, interaction)
                     list_base_aa.append(tup1)
                     
                     for base_atom in base_residue.atoms():
@@ -150,20 +159,19 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                    
             new_aaList_len = len(list_aa_coord)
         #list_base_residue.append(base_residue)
-    if aaList_len == new_aaList_len:
-        print 'No neighbors detected with %s' % aa_residue.sequence                 
-   
+    try:
+        if aaList_len == new_aaList_len:
+            
+            print 'No neighbors detected with %s' % aa_residue.sequence
+    except:
+       print "done"
     #print "%d neighbors" % count_pair + ' detected in %s' % PDB + ' with %s' % aa 
     
-    """result = str(count_pair) + ' between %s' % base_part + ' of %s' % base_seq + ' and %s' % aa_part + ' of %s' % aa 
-    target.write(str(result))
-    target.write("\n")
-    target.close"""
     
     return list_base_aa, list_aa_coord, list_base_coord 
     #return list_aa_coord, list_base_coord, count, list_base_aa
     
-def pseudobase_pairing(base_residue, aa_residue, aa_coordinates):
+def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     squared_xy_dist_list = []
     aa_z =[]
     for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
@@ -179,21 +187,54 @@ def pseudobase_pairing(base_residue, aa_residue, aa_coordinates):
     mean_z = np.mean(aa_z)
     
     print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
-    if 3.1 < min(squared_xy_dist_list)< 35.2 and -2.0 <= mean_z < 2.0:
+    if min(squared_xy_dist_list) <= 3:
+        if aa_residue.sequence in set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE", "PRO", "THR"]):
+            return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
+        else:
+            return stacking_tilt(aa_residue, aa_coordinates)
+            
+    elif 3.1 < min(squared_xy_dist_list)< 35.2 and -2.0 <= mean_z < 2.0:
         if aa_residue.sequence in set (["ASP", "GLU", "ASN", "GLN", "HIS", "ARG", "LYS", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE"]):
             angle= calculate_angle(base_residue, aa_residue)
-            #print base_residue.unit_id(), aa_residue.unit_id(), angle
-            
-            #return True
-            return -1.3 <= angle <= 0.83 or 2.25 <= angle <= 3.14
+            print base_residue.unit_id(), aa_residue.unit_id(), angle
+            if -1.3 <= angle <= 0.79 or 1.7 <= angle <= 3.14:
+                return "pseudopair"
         
-
+        
 def calculate_angle (base_residue, aa_residue):
     vec1 = vector_calculation(base_residue)
     vec2 = vector_calculation(aa_residue)
                 
     angle = angle_between_planes(vec1, vec2)
     return angle
+
+def stacking_angle (base_residue, aa_residue, min_dist):
+    vec1 = vector_calculation(base_residue)
+    vec2 = vector_calculation(aa_residue)
+                
+    angle = angle_between_planes(vec1, vec2)
+    print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
+    if aa_residue.sequence in set (["TRP", "TYR", "PHE", "HIS", "ARG", "LEU", "ILE", "LYS"]):
+        if angle <=0.79 or 2.35 <= angle <= 3.15:
+            return "stacked"
+        elif aa_residue.sequence in set (["TYR", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE"]):
+            if 1.2<= angle <=1.64:
+                return "perpendicular"
+
+def stacking_tilt(aa_residue, aa_coordinates):
+    baa_dist_list = []     
+        
+    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+        key = aa_atom.name
+        aa_z = aa_coordinates[key][2]
+        baa_dist_list.append(aa_z)        
+    max_baa = max(baa_dist_list)
+    min_baa = min(baa_dist_list)
+    #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
+    diff = max_baa - min_baa
+    #print aa_residue.unit_id(), diff
+    if diff <= tilt_cutoff[aa_residue.sequence]:
+        return "stacked"
     
 def vector_calculation(residue):
     key = residue.sequence
@@ -210,35 +251,6 @@ def angle_between_planes (vec1, vec2):
     angle = np.arctan2(sinang, cosang)
     return angle
 
-def test_stacking(base_residue, aa_residue, aa_coordinates):
-    
-    """Detects stacking interaction between amino acids and RNA bases"""
-    #creates a circle around the rotated base center, which is now at (0,0,0)
-    squared_xy_dist_list = []
-    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-        key = aa_atom.name
-        aa_x= aa_coordinates[key][0]
-        aa_y= aa_coordinates[key][1]
-        squared_xy_dist = (aa_x**2) + (aa_y**2)
-        squared_xy_dist_list.append(squared_xy_dist)
-    #print aa_residue, min(squared_xy_dist_list)
-    if min(squared_xy_dist_list) <= 3:
-        
-        baa_dist_list = []     
-        
-        for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-            key = aa_atom.name
-            aa_z = aa_coordinates[key][2]
-            baa_dist_list.append(aa_z)        
-        max_baa = max(baa_dist_list)
-        min_baa = min(baa_dist_list)
-        #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
-        diff = max_baa - min_baa
-        
-        return diff <= tilt_cutoff[aa_residue.sequence]
-    else:
-        return False
-    
 
 def translate_rotate(atom, reference, rotation_matrix):
      atom_coord = atom.coordinates()
@@ -257,6 +269,7 @@ def detect_edge(base_residue, aa_residue, aa_coordinates):
     aa_x = []
     aa_y = []
     aa_z = []
+
     for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
         key = aa_atom.name
         aa_x.append(aa_coordinates[key][0])
@@ -319,30 +332,28 @@ def text_output(result_list):
         
 def csv_output(result_list):
     with open('E:\\Leontis\\Python scripts\\Outputs\\proteinRNA_%s.csv' % PDB, 'wb') as csvfile:
-        fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number', 'Edge']
+        fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number', 'Interaction']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         
-        for base_residue, aa_residue, edge in result_list:
-                    base_component = str(base_residue).split("|")
-                    aa_component = str(aa_residue).split("|")
-                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4], 'Edge': edge})
+        """for base_residue, aa_residue, interaction in result_list:
+            base = base_residue.unit_id()
+            aa = aa_residue.unit_id()
+            base_component = str(base).split("|")
+            aa_component = str(aa).split("|")
+            writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4], 'Interaction': interaction})"""
         
-        """for base_residue, aa_residue,edge in result_list:
+        for base_residue, aa_residue,interaction in result_list:
                     base_component = str(base_residue).split("|")
                     aa_component = str(aa_residue).split("|")
-                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':ChainNames[PDB][aa_component[2]],'AA residue': aa_component[3],'AA residue number': aa_component[4], 'Edge': edge})
+                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':ChainNames[PDB][aa_component[2]],'AA residue': aa_component[3],'AA residue number': aa_component[4], 'Interaction': interaction})
                     
-            for base_residue, aa_residue, dist, edge in result_list:
-                    base_component = str(base_residue).split("|")
-                    aa_component = str(aa_residue).split("|")
-                    writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':ChainNames[PDB][aa_component[2]],'AA residue': aa_component[3],'AA residue number': aa_component[4],'aa_nt distance':dist, 'edge':edge})"""
                
    
 def draw_base(base_seq, ax):
     """Connects atoms to draw neighboring bases and amino acids for 3D plots"""
      #creates lists of rotated base coordinates
-    for basecoord_list in list_base:
+    for basecoord_list in list_base_coord:
         new_base_x = []
         new_base_y = []
         new_base_z = [] 
@@ -379,7 +390,7 @@ def draw_base(base_seq, ax):
 
 def draw_aa(aa, ax):
     #Connects atoms to draw neighboring bases and amino acids for 3D plots
-    for aacoord_list in list_aa:
+    for aacoord_list in list_aa_coord:
         new_aa_x=[]
         new_aa_y=[]
         new_aa_z=[]
@@ -412,7 +423,7 @@ def draw_aa(aa, ax):
         
 def draw_aa_cent(aa, aa_part, ax):
     #Connects atoms to draw neighboring bases and amino acids for 3D plots
-    for aacoord_list in list_aa:
+    for aacoord_list in list_aa_coord:
         new_aa_x=[]
         new_aa_y=[]
         new_aa_z=[]
@@ -444,10 +455,10 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['1GID']
+PDB_List = ['3J9M']
 base_seq_list = ['A','U','C','G']
-#aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
-aa_list = ["ASP", "GLU", "ASN", "GLN", "HIS", "ARG", "LYS", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE"]
+aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
+#aa_list = ['ALA','VAL','ILE','LEU','TYR','TRP','PHE','PRO','CYS','MET']
 
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')
@@ -461,28 +472,32 @@ if __name__=="__main__":
         
         
         aa_part = 'aa_fg'
-        base_part = 'base'
+        base_part = 'nt_backbone'
                                                
                  
-        bases = structure.residues(sequence= base_seq_list)
+        bases = structure.residues(chain = ['AA'], sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
-        list_base_aa, list_aa, list_base = find_neighbors(bases, amino_acids, aa_part, 10)
-                
-        """ # 3D plots of base-aa interactions
-        draw_base(base_seq, ax)
-        #draw_aa(aa, ax)
-        draw_aa_cent(aa, aa_part, ax)
+        list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)
+        """       
+        # 3D plots of base-aa interactions
+        for base, aa, interaction in list_base_aa:
+            base_seq = base.sequence
+            aa= aa.sequence
+                   
+            draw_base(base_seq, ax)
+            #draw_aa(aa, ax)
+            draw_aa_cent(aa, aa_part, ax)
         
-        ax.set_xlabel('X Axis')
-        ax.set_ylabel('Y Axis')
-        ax.set_zlabel('Z Axis')
-        ax.set_xlim3d(10, -15)
-        ax.set_ylim3d(10, -15)
-        ax.set_zlim3d(10, -15)
-        #plt.title('%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
-        plt.show()"""
-            
+            ax.set_xlabel('X Axis')
+            ax.set_ylabel('Y Axis')
+            ax.set_zlabel('Z Axis')
+            ax.set_xlim3d(10, -15)
+            ax.set_ylim3d(10, -15)
+            ax.set_zlim3d(10, -15)
+            #plt.title('%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
+            plt.show()
+            """            
         #making the list of resultant RNA-aa pairs
         result_nt_aa.extend(list_base_aa)
         
