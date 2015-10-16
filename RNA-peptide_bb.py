@@ -10,7 +10,7 @@ from fr3d.definitions import RNAbaseheavyatoms
 from fr3d.definitions import Ribophos_connect
 from fr3d.definitions import aa_connections
 from fr3d.definitions import aa_backconnect
-from fr3d.definitions import aa_fg
+from fr3d.definitions import aa_backbone
 from fr3d.definitions import nt_backbone
 from fr3d.definitions import tilt_cutoff
 from fr3d.definitions import Normal_residue
@@ -30,19 +30,6 @@ def get_structure(filename):
         structure.infer_hydrogens()
         return structure
 
-def atom_dist(base_residue,aa_residue):
-    """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
-    of type "aa" from each atom of base"""
-    min_baa = 4
-    for base_atom in base_residue.atoms():
-        base_coord = base_atom.coordinates()        
-        for atom in aa_residue.atoms():
-            aa_atom = atom.coordinates()
-            dist_baa = np.subtract(aa_atom,base_coord)
-            baa_scalar = np.linalg.norm(dist_baa)
-            #print baa_scalar
-            if baa_scalar <= min_baa:
-                return True
 
 def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
     """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
@@ -51,8 +38,8 @@ def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
     min_distance = 4
     #HB_atoms = set(['N', 'NH1','NH2','ND1','NE2','O','OD1','OE1','OE2', 'OG'])
     n = 0
-    for base_atom in base_residue.atoms(name=['OP1','OP2']):
-        for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+    for base_atom in base_residue.atoms(name=base_atoms):
+        for aa_atom in aa_residue.atoms(name=aa_backbone[aa_residue.sequence]):
             # aa_atom = atom.coordinates()
             #if aa_atom in HB_atoms:
             distance = np.subtract(base_atom.coordinates(), aa_atom.coordinates())
@@ -64,6 +51,8 @@ def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
         #print aa_residue.unit_id()
         return True
         
+        
+
                      
 def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     """Finds all amino acids of type "aa" for which center of "aa_part" is within
@@ -105,10 +94,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
             
             dist_vector = np.subtract(base_center, aa_center)
             dist_scalar = np.linalg.norm(dist_vector)
-            if aa_residue.sequence == 'LYS':
-                c= 1
-            else:
-                c = 2
+            c = 2
             #base_seq = base_residue.sequence
             if dist_scalar <= dist_cent_cutoff and \
             atom_dist_basepart(base_residue, aa_residue, base_atoms, c): 
@@ -178,7 +164,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
 def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     squared_xy_dist_list = []
     aa_z =[]
-    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+    for aa_atom in aa_residue.atoms(name=aa_backbone[aa_residue.sequence]):
         key = aa_atom.name
         aa_x= aa_coordinates[key][0]
         aa_y= aa_coordinates[key][1]
@@ -192,20 +178,13 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     
     #print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
     if min(squared_xy_dist_list) <= 3:
-        if aa_residue.sequence in set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE", "PRO", "THR"]):
-            return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
-        else:
-            return stacking_tilt(aa_residue, aa_coordinates)
+        return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
             
     elif 3.1 < min(squared_xy_dist_list)< 35.2 and -2.0 <= mean_z < 2.0:
-        #if aa_residue.sequence =="LYS":
-            #return "pseudopair"
-        if aa_residue.sequence in set (["ASP", "GLU", "ASN", "GLN", "HIS", "LYS", "ARG", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE"]):
+        if aa_residue.sequence in set (["ASP", "GLU", "ASN", "GLN", "HIS", "ARG", "LYS", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE"]):
             angle= calculate_angle(base_residue, aa_residue)
-            print "pseudopair"
             print base_residue.unit_id(), aa_residue.unit_id(), angle
-            #if -1.3 <= angle <= 0.79 or 1.7 <= angle <= 3.14:
-            if 0 <= angle <= 0.79 or 2.3 <= angle <= 3.14:
+            if -1.3 <= angle <= 0.79 or 2.3 <= angle <= 3.14:
                 return "pseudopair"
         
         
@@ -221,17 +200,10 @@ def stacking_angle (base_residue, aa_residue, min_dist):
     vec2 = vector_calculation(aa_residue)
                 
     angle = angle_between_planes(vec1, vec2)
-    print "stacked"
     print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
+    if angle <=0.79 or 2.35 <= angle <= 3.15:
+        return "stacked"
     
-    if aa_residue.sequence in set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "LEU", "ILE", "PRO", "ASN", "GLN"]):
-        if angle <=0.79 or 2.35 <= angle <= 3.15:
-            return "stacked"
-        elif aa_residue.sequence in set (["TYR", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE"]):
-            if 1.2<= angle <=1.64:
-                return "perpendicular"
-    
-
 def stacking_tilt(aa_residue, aa_coordinates):
     baa_dist_list = []     
         
@@ -249,12 +221,20 @@ def stacking_tilt(aa_residue, aa_coordinates):
     
 def vector_calculation(residue):
     key = residue.sequence
-    P1 = residue.centers[Normal_residue[key][0]]
-    P2 = residue.centers[Normal_residue[key][1]]
-    P3 = residue.centers[Normal_residue[key][2]]
-    #print P1, P2, P3
-    vector = np.cross((P2 - P1),(P3-P1))
-    return vector
+    if key in ('A', 'U', 'G', 'C'):
+            P1 = residue.centers[Normal_residue[key][0]]
+            P2 = residue.centers[Normal_residue[key][1]]
+            P3 = residue.centers[Normal_residue[key][2]]
+            
+            vector = np.cross((P2 - P1),(P3-P1))
+            return vector
+    else:
+       P1 = residue.centers['C']
+       P2 = residue.centers['CA']
+       P3 = residue.centers['O']
+       #print P1, P2, P3
+       vector = np.cross((P2 - P1),(P3-P1))
+       return vector
 
 def angle_between_planes (vec1, vec2):
     cosang = np.dot(vec1, vec2)
@@ -342,7 +322,7 @@ def text_output(result_list):
             target.close
         
 def csv_output(result_list):
-    with open('E:\\Leontis\\Python scripts\\Outputs\\proteinRNAbb_%s.csv' % PDB, 'wb') as csvfile:
+    with open('E:\\Leontis\\Python scripts\\Outputs\\proteinRNA-peptide_%s.csv' % PDB, 'wb') as csvfile:
         fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number', 'Interaction']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -466,7 +446,7 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['3I8G']
+PDB_List = ['5AJ3']
 base_seq_list = ['A','U','C','G']
 aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 #aa_list = ['ALA','VAL','ILE','LEU','TYR','TRP','PHE','PRO','CYS','MET']
@@ -482,8 +462,8 @@ if __name__=="__main__":
         
         
         
-        aa_part = 'aa_fg'
-        base_part = 'nt_backbone'
+        aa_part = 'aa_backbone'
+        base_part = 'base'
                                                
                  
         bases = structure.residues(chain = ['A'], sequence= base_seq_list)
