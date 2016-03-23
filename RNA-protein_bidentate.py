@@ -10,7 +10,7 @@ from fr3d.definitions import RNAbaseheavyatoms
 from fr3d.definitions import Ribophos_connect
 from fr3d.definitions import aa_connections
 from fr3d.definitions import aa_backconnect
-from fr3d.definitions import aa_backbone
+from fr3d.definitions import aa_fg
 from fr3d.definitions import nt_backbone
 from fr3d.definitions import tilt_cutoff
 from fr3d.definitions import Normal_residue
@@ -30,6 +30,19 @@ def get_structure(filename):
         structure.infer_hydrogens()
         return structure
 
+def atom_dist(base_residue,aa_residue):
+    """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
+    of type "aa" from each atom of base"""
+    min_baa = 4
+    for base_atom in base_residue.atoms():
+        base_coord = base_atom.coordinates()        
+        for atom in aa_residue.atoms():
+            aa_atom = atom.coordinates()
+            dist_baa = np.subtract(aa_atom,base_coord)
+            baa_scalar = np.linalg.norm(dist_baa)
+            #print baa_scalar
+            if baa_scalar <= min_baa:
+                return True
 
 def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
     """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
@@ -38,9 +51,8 @@ def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
     min_distance = 4
     #HB_atoms = set(['N', 'NH1','NH2','ND1','NE2','O','OD1','OE1','OE2', 'OG'])
     n = 0
-    #for base_atom in base_residue.atoms(name=['OP1','OP2']):
     for base_atom in base_residue.atoms(name=base_atoms):
-        for aa_atom in aa_residue.atoms(name=aa_backbone[aa_residue.sequence]):
+        for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
             # aa_atom = atom.coordinates()
             #if aa_atom in HB_atoms:
             distance = np.subtract(base_atom.coordinates(), aa_atom.coordinates())
@@ -48,12 +60,10 @@ def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
             if distance <= min_distance:
                 n = n+1
                 #print aa_atom.name
-    if n>=c:
+    if n>=1:
         #print aa_residue.unit_id()
         return True
         
-        
-
                      
 def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     """Finds all amino acids of type "aa" for which center of "aa_part" is within
@@ -66,7 +76,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     aaList_len = None
     new_aaList_len = None
     list_base_aa = []
-    #perpendicular_interactions = []
+    
     helix_list = []
     
     #target = open('E:\\Leontis\\Python scripts\\RNAprotein-count_%s.txt' % PDB, 'a')
@@ -93,9 +103,13 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
             if not aa_center.any():
                 continue
             
+            #print base_center, aa_center, aa_residue.unit_id()            
             dist_vector = np.subtract(base_center, aa_center)
             dist_scalar = np.linalg.norm(dist_vector)
-            c = 1
+            if aa_residue.sequence in set (['LYS','SER', 'THR', 'TYR']):
+                c= 1
+            else:
+                c = 2
             #base_seq = base_residue.sequence
             if dist_scalar <= dist_cent_cutoff and \
             atom_dist_basepart(base_residue, aa_residue, base_atoms, c): 
@@ -117,7 +131,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                 
                               
                 interaction = type_of_interaction(base_residue, aa_residue, aa_coordinates)
-                
+                    
                 #csv reader for helix-loop classification
                 with open('E:\\Leontis\\Python scripts\\CIF\\5AJ3.csv', 'rb') as f:
                     reader = csv.reader(f)
@@ -125,8 +139,8 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                     for entry in reader:
                         helix_list.extend(entry)
                 
-                if interaction == "pseudopair":
-                    
+                #if interaction == "pseudopair" or interaction == "perpendicular" or interaction == "stacked" or interaction == "bidentate":
+                if interaction == "bidentate":    
                     #edge = detect_edge(base_residue, aa_residue, aa_coordinates)
                     
                     """if base_residue.unit_id() in helix_list:
@@ -136,6 +150,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                         """
                     
                     tup1= (base_residue, aa_residue, interaction)
+                    
                     list_base_aa.append(tup1)
                     
                     for base_atom in base_residue.atoms():
@@ -144,9 +159,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                         list_aa_coord.append(aa_coordinates)
 
                 new_aaList_len = len(list_base_aa)
-                    
-                
-                        
+                                   
                    
             new_aaList_len = len(list_aa_coord)
         #list_base_residue.append(base_residue)
@@ -165,7 +178,13 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
 def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     squared_xy_dist_list = []
     aa_z =[]
-    for aa_atom in aa_residue.atoms(name=aa_backbone[aa_residue.sequence]):
+    
+    """Defines different sets of amino acids"""
+    stacked_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE", "PRO", "THR"])
+    bidentate_aa = set (["ASP", "GLU", "ASN", "GLN", "ARG", "HIS", "TRP", "TYR","PHE", "ILE", "LEU"])
+    pseudopair_aa = set (["ASP", "GLU", "ASN", "GLN", "HIS", "LYS", "ARG", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE", "MET"])
+    
+    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
         key = aa_atom.name
         aa_x= aa_coordinates[key][0]
         aa_y= aa_coordinates[key][1]
@@ -176,19 +195,25 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
         aa_z.append(aa_coordinates[key][2])
         
     mean_z = np.mean(aa_z)
+    mean_x = np.mean(aa_x)
+    mean_y = np.mean(aa_y)
     
     #print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
     if min(squared_xy_dist_list) <= 3:
-        return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
-            
-    elif 3.1 < min(squared_xy_dist_list)< 35.2 and -2.0 <= mean_z < 2.0:
-        if aa_residue.sequence in set (["ASP", "GLU", "ASN", "GLN", "HIS", "ARG", "LYS", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE"]):
+        if aa_residue.sequence in stacked_aa:
+            return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
+        else:
+            return stacking_tilt(aa_residue, aa_coordinates)
+
+    elif mean_y <= 6 and mean_x <= 6:
+        if -5.0 <= mean_z < 5.0 and aa_residue.sequence in bidentate_aa:
+            #print "bidentate?"
             angle= calculate_angle(base_residue, aa_residue)
-            print base_residue.unit_id(), aa_residue.unit_id(), angle
-            if -1.3 <= angle <= 0.79 or 2.3 <= angle <= 3.14:
-                return "pseudopair"
-        
-        
+            print base_residue.unit_id(), aa_residue.unit_id(), angle, (mean_x, mean_y, mean_z)
+            if  0.57 <= angle <= 0.88 or 1.5 <= angle <=2.46:
+                return "bidentate"
+                 
+            
 def calculate_angle (base_residue, aa_residue):
     vec1 = vector_calculation(base_residue)
     vec2 = vector_calculation(aa_residue)
@@ -199,12 +224,21 @@ def calculate_angle (base_residue, aa_residue):
 def stacking_angle (base_residue, aa_residue, min_dist):
     vec1 = vector_calculation(base_residue)
     vec2 = vector_calculation(aa_residue)
-                
-    angle = angle_between_planes(vec1, vec2)
-    print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
-    if angle <=0.79 or 2.35 <= angle <= 3.15:
-        return "stacked"
     
+    stacked_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "LEU", "ILE", "PRO", "ASN", "GLN"])       
+    perpendicular_aa = set (["TYR", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE"])
+    angle = angle_between_planes(vec1, vec2)
+    #print "stacked"
+    #print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
+    
+    if aa_residue.sequence in stacked_aa:
+        if angle <=0.59 or 2.55 <= angle <= 3.15:
+            return "stacked"
+        elif aa_residue.sequence in perpendicular_aa:
+            if 1.2<= angle <=1.64:
+                return "perpendicular"
+    
+
 def stacking_tilt(aa_residue, aa_coordinates):
     baa_dist_list = []     
         
@@ -222,20 +256,12 @@ def stacking_tilt(aa_residue, aa_coordinates):
     
 def vector_calculation(residue):
     key = residue.sequence
-    if key in ('A', 'U', 'G', 'C'):
-            P1 = residue.centers[Normal_residue[key][0]]
-            P2 = residue.centers[Normal_residue[key][1]]
-            P3 = residue.centers[Normal_residue[key][2]]
-            
-            vector = np.cross((P2 - P1),(P3-P1))
-            return vector
-    else:
-       P1 = residue.centers['C']
-       P2 = residue.centers['CA']
-       P3 = residue.centers['O']
-       #print P1, P2, P3
-       vector = np.cross((P2 - P1),(P3-P1))
-       return vector
+    P1 = residue.centers[Normal_residue[key][0]]
+    P2 = residue.centers[Normal_residue[key][1]]
+    P3 = residue.centers[Normal_residue[key][2]]
+    #print P1, P2, P3
+    vector = np.cross((P2 - P1),(P3-P1))
+    return vector
 
 def angle_between_planes (vec1, vec2):
     cosang = np.dot(vec1, vec2)
@@ -315,15 +341,79 @@ def detect_edge(base_residue, aa_residue, aa_coordinates):
             edge = "Hoogsteen"
             return edge
 
+ChainNames = {}
+
+ChainNames ['5AJ3'] = {'B' :'uS2m' , 'C': 'uS3m/ uS24m', 'E':'uS5m', 'F':'bS6m',
+                       'G':'uS7m', 'I':'uS9m', 'J':'uS10m', 'K':'uS11m', 'L':'uS12m',
+                       'N':'uS14m', 'O':'uS15m','P':'bS16m','Q':'uS17m',
+                       'R':'uS18m/ uS18c', 'T':'bL19m', 'U':'bS21m','a':'mS22',
+                       'b':'mS23', 'c':'mS25', 'd': 'mS26', 'e':'mS27', 'f':'bS1m/mS28',
+                       'g':'mS29','h':'mS31','i':'mS33','j':'mS34','k':'mS35','m':'mS37',
+                       'n':'mS38','o':'mS39','p':'mS40'}
+
+
+ChainNames ['3J9M'] = {'B' :'uS2m' , 'C': 'uS3m/ uS24m', 'D':'uS5m',
+                       'E':'bS6m', 'F':'uS7m', 'G':'uS9m', 'H':'uS10m',
+                       'I':'uS11m', 'J':'uS12m', 'K':'uS14m', 'L':'uS15m',
+                       'M':'bS16m', 'N':'uS17m', 'O':'bS18b/ mS40','P':'uS18m/ uS18c',
+                       'Q':'bS21m', 'R':'mS22', 'S':'mS23', 'T':'mS25', 'U':'mS26',
+                       'V': 'mS27', 'W':'bL27m','X':'mS29', 'Y':'mS31','Z':'mS33','0': 'bL32m',
+                       '1': 'bL33m', '2': 'bL34m', '3': 'bL35m', '4': 'bL36m',
+                       '5': 'mL37','6': 'mL38','7': 'mL39', '8': 'mL40','9': 'mL41',
+                       'a':'mS34', 'b':'mS35', 'c':'mS37', 'd': 'mS38', 'e':'ms39', 'f':'mL48',
+                       'g':'mL49','h':'mL50','i':'mL51','j':'mL52','k':'mL53','l':'mL54',
+                       'm':'bL31m', 'o':'mL63','p':'mL62','q':'mL62', 'r':'mL66/bS18a',
+                       's':'mL65/ mS30', 'AB':'uS2m','AC':'uS3m', 'AD':'uS5m',
+                       'AE':'bS6m', 'AF':'uS7m','AG':'uS9m', 'AH':'uS10m','AI':'uS11m',
+                       'AJ':'uS12m', 'AK':'uS14m', 'AL':'uS15m','AM':'bS16m','AN':'uS17m',
+                       'AO':'mS40/ bS18b', 'AP':'bS18m/ bS18c','AQ':'bS21m','AR':'mS22',
+                       'AS': 'mS23','AT': 'mS25','AU': 'mS26','AV': 'mS27','AW': 'bS21m',
+                       'AX': 'mS29','AY': 'mS31','AZ': 'mS33','A0': 'mS34','A1': 'mS35',
+                       'A2': 'mS37','A3': 'mS38','A4': 'mS39',}
+
+ChainNames ['3I8G'] = {'B':'bS1', 'E' :'uS2', 'F' :'uS3', 'G' :'uS4', 'H' :'uS5', 'I' :'bS6',
+                       'J' :'uS7', 'K' :'uS8', 'L' :'uS9', 'M' :'uS10', 'N' :'uS11',
+                       'O' :'uS12', 'P' :'uS13', 'Q': 'uS14', 'R' :'uS15', 'S' :'bS16',
+                       'T' :'bS17', 'U' :'uS18', 'V' :'uS19', 'W' :'bS20', 'X' :'bS21'}
+
+ChainNames ['2AW7'] = {'B' :'uS2', 'C' :'uS3', 'D' :'uS4', 'E' :'uS5', 'F' :'bS6',
+                       'G' :'uS7', 'H' :'uS8', 'I' :'uS9', 'J' :'uS10', 'K' :'uS11',
+                       'L' :'uS12', 'M' :'uS13', 'N': 'uS14', 'O' :'uS15', 'P' :'bS16',
+                       'Q' :'uS17', 'R' :'bS18', 'S' :'uS19', 'T' :'bS20', 'U' :'bS21'}
+                                  
 def text_output(result_list):
     with open('E:\\Leontis\\Python scripts\\Outputs\\proteinRNA_%s.txt' % PDB, 'wb') as target:
         for result in result_list:
             target.write(str(result))
             target.write("\r\n")
             target.close
+
+def true_bidentate(result_list):
+    aa_list = []
+    bidentate_resi = set()
+    final_result = []
+    
+    for base_residue, aa_residue, interaction in result_list:
+            #base = base_residue.unit_id()
+            #aa = aa_residue.unit_id()
+            if interaction == "bidentate":
+                if aa_residue in aa_list:
+                    bidentate_resi.update({aa_residue})
+                else: 
+                    aa_list.append(aa_residue)
+            else:
+                base_aa_tuple = (base_residue, aa_residue, interaction)
+                final_result.append(base_aa_tuple)
+                
+    for base_residue, aa_residue, interaction in result_list:
+        if aa_residue in bidentate_resi:
+            base_aa_tuple = (base_residue, aa_residue, interaction)
+            final_result.append(base_aa_tuple)
+                
+    return final_result
         
 def csv_output(result_list):
-    with open('E:\\Leontis\\Python scripts\\Outputs\\proteinRNA-peptide_%s.csv' % PDB, 'wb') as csvfile:
+    with open('E:\\Leontis\\Python scripts\\Outputs\\Bidentate_%s.csv' % PDB, 'wb') as csvfile:
         fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number', 'Interaction']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -331,6 +421,7 @@ def csv_output(result_list):
         for base_residue, aa_residue, interaction in result_list:
             base = base_residue.unit_id()
             aa = aa_residue.unit_id()
+            #print base, aa, interaction               
             base_component = str(base).split("|")
             aa_component = str(aa).split("|")
             writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4], 'Interaction': interaction})
@@ -447,13 +538,13 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['4YBB', '4V9F', '1S72', '5AJ3']
-base_seq_list = ['U']
+PDB_List = ['2QBG']
+base_seq_list = ['A', 'U','G', 'C']
 aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
-#aa_list = ['ALA','VAL','ILE','LEU','TYR','TRP','PHE','PRO','CYS','MET']
+#aa_list = ['ARG']
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+#fig = plt.figure()
+#ax = fig.add_subplot(111, projection='3d')
 
 """Inputs base, amino acid, aa_part of interest and cut-off distance for subsequent functions"""   
 if __name__=="__main__":
@@ -461,17 +552,16 @@ if __name__=="__main__":
         structure = get_structure('E:\\Leontis\\Python scripts\\CIF\\%s.cif' % PDB)
         result_nt_aa = []
         
-        
-        
-        aa_part = 'aa_backbone'
+    
+        aa_part = 'aa_fg'
         base_part = 'base'
                                                
                  
-        bases = structure.residues(sequence= base_seq_list)
+        bases = structure.residues(chain = ["B"], sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
         list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)
-             
+        """       
         # 3D plots of base-aa interactions
         for base, aa, interaction in list_base_aa:
             base_seq = base.sequence
@@ -489,11 +579,15 @@ if __name__=="__main__":
             ax.set_zlim3d(10, -15)
             #plt.title('%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
             plt.show()
-                      
+            """            
         #making the list of resultant RNA-aa pairs
         result_nt_aa.extend(list_base_aa)
         
         #writing out output files                
         #text_output(result_nt_aa)
-        
+        #print result_nt_aa
+        final_output = true_bidentate(result_nt_aa)
+        #print "final output", final_output
+        #print len(final_output)
+        csv_output(final_output)
         #csv_output(result_nt_aa)
