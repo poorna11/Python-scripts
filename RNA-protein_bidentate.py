@@ -13,7 +13,7 @@ from fr3d.definitions import aa_backconnect
 from fr3d.definitions import aa_fg
 from fr3d.definitions import nt_backbone
 from fr3d.definitions import tilt_cutoff
-from fr3d.definitions import Normal_residue
+from fr3d.definitions import planar_atoms
 #from fr3d.definitions import ChainNames
 import numpy as np
 import csv
@@ -49,7 +49,7 @@ def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
     of type "aa" from each atom of base. Only returns a pair of aa/nt if two 
     or more atoms are within the cutoff distance"""
     min_distance = 4
-    #HB_atoms = set(['N', 'NH1','NH2','ND1','NE2','O','OD1','OE1','OE2', 'OG'])
+    HB_atoms = set(['N', 'NH1','NH2','NE','NZ','ND1','NE2','O','OD1','OE1','OE2', 'OG', 'OH'])
     n = 0
     for base_atom in base_residue.atoms(name=base_atoms):
         for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
@@ -57,7 +57,7 @@ def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
             #if aa_atom in HB_atoms:
             distance = np.subtract(base_atom.coordinates(), aa_atom.coordinates())
             distance = np.linalg.norm(distance)
-            if distance <= min_distance:
+            if distance <= min_distance and aa_atom.name in HB_atoms:
                 n = n+1
                 #print aa_atom.name
     if n>=1:
@@ -180,10 +180,8 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     aa_z =[]
     
     """Defines different sets of amino acids"""
-    stacked_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE", "PRO", "THR"])
     bidentate_aa = set (["ASP", "GLU", "ASN", "GLN", "ARG", "HIS", "TRP", "TYR","PHE", "ILE", "LEU"])
-    pseudopair_aa = set (["ASP", "GLU", "ASN", "GLN", "HIS", "LYS", "ARG", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE", "MET"])
-    
+        
     for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
         key = aa_atom.name
         aa_x= aa_coordinates[key][0]
@@ -198,20 +196,14 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     mean_x = np.mean(aa_x)
     mean_y = np.mean(aa_y)
     
-    #print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
-    if min(squared_xy_dist_list) <= 3:
-        if aa_residue.sequence in stacked_aa:
-            return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
-        else:
-            return stacking_tilt(aa_residue, aa_coordinates)
 
-    elif mean_y <= 6 and mean_x <= 6:
+    if mean_y <= 6 and mean_x <= 6:
         if -5.0 <= mean_z < 5.0 and aa_residue.sequence in bidentate_aa:
             #print "bidentate?"
             angle= calculate_angle(base_residue, aa_residue)
             print base_residue.unit_id(), aa_residue.unit_id(), angle, (mean_x, mean_y, mean_z)
-            if  0.57 <= angle <= 0.88 or 1.5 <= angle <=2.46:
-                return "bidentate"
+            #if  0.57 <= angle <= 1.1 or 1.29 <= angle <=2.46:
+            return "bidentate"
                  
             
 def calculate_angle (base_residue, aa_residue):
@@ -221,44 +213,12 @@ def calculate_angle (base_residue, aa_residue):
     angle = angle_between_planes(vec1, vec2)
     return angle
 
-def stacking_angle (base_residue, aa_residue, min_dist):
-    vec1 = vector_calculation(base_residue)
-    vec2 = vector_calculation(aa_residue)
-    
-    stacked_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "LEU", "ILE", "PRO", "ASN", "GLN"])       
-    perpendicular_aa = set (["TYR", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE"])
-    angle = angle_between_planes(vec1, vec2)
-    #print "stacked"
-    #print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
-    
-    if aa_residue.sequence in stacked_aa:
-        if angle <=0.59 or 2.55 <= angle <= 3.15:
-            return "stacked"
-        elif aa_residue.sequence in perpendicular_aa:
-            if 1.2<= angle <=1.64:
-                return "perpendicular"
-    
-
-def stacking_tilt(aa_residue, aa_coordinates):
-    baa_dist_list = []     
-        
-    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-        key = aa_atom.name
-        aa_z = aa_coordinates[key][2]
-        baa_dist_list.append(aa_z)        
-    max_baa = max(baa_dist_list)
-    min_baa = min(baa_dist_list)
-    #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
-    diff = max_baa - min_baa
-    #print aa_residue.unit_id(), diff
-    if diff <= tilt_cutoff[aa_residue.sequence]:
-        return "stacked"
     
 def vector_calculation(residue):
     key = residue.sequence
-    P1 = residue.centers[Normal_residue[key][0]]
-    P2 = residue.centers[Normal_residue[key][1]]
-    P3 = residue.centers[Normal_residue[key][2]]
+    P1 = residue.centers[planar_atoms[key][0]]
+    P2 = residue.centers[planar_atoms[key][1]]
+    P3 = residue.centers[planar_atoms[key][2]]
     #print P1, P2, P3
     vector = np.cross((P2 - P1),(P3-P1))
     return vector
@@ -282,65 +242,6 @@ def translate_rotate(atom, reference, rotation_matrix):
      coord = a.tolist()    
      return coord
                 
-def detect_edge(base_residue, aa_residue, aa_coordinates):
-    
-    aa_x = []
-    aa_y = []
-    aa_z = []
-
-    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
-        key = aa_atom.name
-        aa_x.append(aa_coordinates[key][0])
-        aa_y.append(aa_coordinates[key][1])
-        aa_z.append(aa_coordinates[key][2])
-    aa_center_x = np.mean(aa_x)
-    aa_center_y = np.mean(aa_y)
-    aa_center_z = np.mean(aa_z)
-    #print base_residue.unit_id(), aa_residue.unit_id(), (aa_center_x, aa_center_y, aa_center_z)
-    if base_residue.sequence == "A":
-        if -3.2 <= aa_center_x <= 7.2 and -3.4 <= aa_center_y <= 5.7:
-            edge = "WC"
-            return edge
-        elif -4.2 <= aa_center_x <= 4.6 and -4.8 <= aa_center_y <= 1.7:
-            edge = "Sugar"
-            return edge
-        elif -5.2 <= aa_center_x <= 2.7 and -4.0 <= aa_center_y <= 3.3:
-            edge = "Hoogsteen"
-            return edge
-    
-    elif base_residue.sequence == "G":
-        if -3.2 <= aa_center_x <= 4.8 and -3.4 <= aa_center_y <= 4.5:
-            edge = "WC"
-            return edge
-        elif -4.5 <= aa_center_x <= 6.3 and -4.8 <= aa_center_y <= 1.7:
-            edge = "Sugar"
-            return edge
-        elif -5.6 <= aa_center_x <= -3.9 and -3.9 <= aa_center_y <= 3.4:
-            edge = "Hoogsteen"
-            return edge
-    
-    elif base_residue.sequence == "U":
-        if -3.3 <= aa_center_x <= 4.0 and -4.0 <= aa_center_y <= 4.3:
-            edge = "WC"
-            return edge
-        elif -4.6 <= aa_center_x <= 4.6 and -4.6 <= aa_center_y <= 2.2:
-            edge = "Sugar"
-            return edge
-        elif -5.4 <= aa_center_x <= 3.9 and -4.0 <= aa_center_y <= 4.3:
-            edge = "Hoogsteen"
-            return edge
-            
-    elif base_residue.sequence == "C":
-        if -3.2 <= aa_center_x <= 5.1 and -3.9 <= aa_center_y <= 4.2:
-            edge = "WC"
-            return edge
-        elif -4.8 <= aa_center_x <= 4.3 and -4.5 <= aa_center_y <= 2.2:
-            edge = "Sugar"
-            return edge
-        elif -4.5 <= aa_center_x <= 2.8 and -2.3 <= aa_center_y <= 5.2:
-            edge = "Hoogsteen"
-            return edge
-
 ChainNames = {}
 
 ChainNames ['5AJ3'] = {'B' :'uS2m' , 'C': 'uS3m/ uS24m', 'E':'uS5m', 'F':'bS6m',
@@ -538,7 +439,7 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['2QBG']
+PDB_List = ['4YBB']
 base_seq_list = ['A', 'U','G', 'C']
 aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 #aa_list = ['ARG']
@@ -557,7 +458,7 @@ if __name__=="__main__":
         base_part = 'base'
                                                
                  
-        bases = structure.residues(chain = ["B"], sequence= base_seq_list)
+        bases = structure.residues(chain = ["AA"], sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
         list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)

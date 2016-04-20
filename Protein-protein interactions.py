@@ -8,7 +8,7 @@ from fr3d.cif.reader import Cif
 import numpy as np
 #from fr3d.definitions import aa_fg
 from fr3d.definitions import aa_backconnect
-from fr3d.definitions import ChainNames
+#from fr3d.definitions import ChainNames
 import csv
 
 
@@ -32,7 +32,7 @@ def atom_dist(aa_residue1,aa_residue2):
             if distance_aa <= min_aa:
                 n = n + 1
     if n >= 2:
-        return True
+        return min_aa
              
 
 def find_neighbors(aa1, aa1_part, aa2, aa2_part, dist_cent_cutoff):
@@ -68,15 +68,17 @@ def find_neighbors(aa1, aa1_part, aa2, aa2_part, dist_cent_cutoff):
                 continue
             
             #count_interactions = open('E:\\Leontis\\Python scripts\\%s.csv' % PDB, 'wb')
+            atom_dist_cutoff = 4
+            min_aa = atom_dist(aa1_residue, aa2_residue)
             
             dist_vector = np.subtract(aa2_center,aa1_center)
             dist_scalar = np.linalg.norm(dist_vector)
             if dist_scalar <= dist_cent_cutoff and \
-            atom_dist(aa1_residue, aa2_residue):
+            atom_dist(aa1_residue, aa2_residue)<= atom_dist_cutoff:
             
                 #print aa1_residue, aa2_residue
                 
-                tup1= (aa1_residue, aa2_residue)
+                tup1= (aa1_residue, aa2_residue, min_aa)
                 sorted_tup1 = tuple(sorted(tup1))
                 
                 if sorted_tup1 not in list_aa1_aa2:
@@ -122,19 +124,19 @@ def chainwise_interactions_csv(result_dict):
             writer.writerow({'Chain1 ID': aa1_chain, 'Chain2 ID':aa2_chain,'No. of interactions':count})    
                     
 def csv_output(result_list):
-    with open('E:\\Leontis\\Python scripts\\Outputs\\%s.csv' % PDB, 'wb') as csvfile:
-        fieldnames = ['Protein1 Chain ID', 'AA1 residue','AA1 residue number','Protein2 Chain ID', 'AA2 residue','AA2 residue number']
+    with open('E:\\Leontis\\Python scripts\\Outputs\\%s-Dec21.csv' % PDB, 'wb') as csvfile:
+        fieldnames = ['Protein1 Chain ID', 'AA1 residue','AA1 residue number','Protein2 Chain ID', 'AA2 residue','AA2 residue number', 'Min distance']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
-        for aa1_residue, aa2_residue in result_list:
+        for aa1_residue, aa2_residue, min_aa in result_list:
                     aa1_component = str(aa1_residue.unit_id()).split("|")
                     aa2_component = str(aa2_residue.unit_id()).split("|")
                                         
-                    writer.writerow({'Protein1 Chain ID': ChainNames[PDB][aa1_component[2]], 'AA1 residue':aa1_component[3],'AA1 residue number': aa1_component[4],'Protein2 Chain ID':ChainNames[PDB][aa2_component[2]],'AA2 residue': aa2_component[3],'AA2 residue number': aa2_component[4]})    
+                    writer.writerow({'Protein1 Chain ID': ChainNames[PDB][aa1_component[2]], 'AA1 residue':aa1_component[3],'AA1 residue number': aa1_component[4],'Protein2 Chain ID':ChainNames[PDB][aa2_component[2]],'AA2 residue': aa2_component[3],'AA2 residue number': aa2_component[4], 'Min distance': min_aa})    
 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['3I8G']
-aa_seq_list = ['ALA','VAL','ARG']
+PDB_List = ['3LVL']
+aa_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 #aa_seq_list = ['MET', 'VAL']
 #aa2_seq_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 
@@ -158,6 +160,6 @@ if __name__=="__main__":
                 
         result_aa.extend(list_aa1_aa2)
                        
-        #csv_output(result_aa)
-        #chainwise_interactions_csv(chainwise_interactions(result_aa, PDB))
+        csv_output(result_aa)
+        chainwise_interactions_csv(chainwise_interactions(result_aa, PDB))
         print chainwise_interactions(result_aa, PDB)

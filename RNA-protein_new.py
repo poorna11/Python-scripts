@@ -13,7 +13,7 @@ from fr3d.definitions import aa_backconnect
 from fr3d.definitions import aa_fg
 from fr3d.definitions import nt_backbone
 from fr3d.definitions import tilt_cutoff
-from fr3d.definitions import Normal_residue
+from fr3d.definitions import planar_atoms
 #from fr3d.definitions import ChainNames
 import numpy as np
 import csv
@@ -52,9 +52,8 @@ def atom_dist_basepart(base_residue, aa_residue, base_atoms, c):
         
         
 def enough_HBs(base_residue, aa_residue, base_atoms):
-    """Calculates atom to atom distance of part "aa_part" of neighboring amino acids 
-    of type "aa" from each atom of base. Only returns a pair of aa/nt if two 
-    or more atoms are within the cutoff distance"""
+    """Calculates number of Hydrogen bonds between amino acid part and base_part 
+    and determines if they are enough to form a pseudopair"""
     min_distance = 4
     HB_atoms = set(['N', 'NH1','NH2','NE','NZ','ND1','NE2','O','OD1','OE1','OE2', 'OG', 'OH'])
     n = 0
@@ -83,7 +82,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     new_aaList_len = None
     list_base_aa = []
     
-    helix_list = []
+    #helix_list = []
     
     #target = open('E:\\Leontis\\Python scripts\\RNAprotein-count_%s.txt' % PDB, 'a')
     for base_residue in bases:
@@ -213,7 +212,7 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     mean_z = np.mean(aa_z)
     
     #print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
-    if min(squared_xy_dist_list) <= 3:
+    if min(squared_xy_dist_list) <= 5:
         if aa_residue.sequence in stacked_aa:
             return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
         else:
@@ -271,9 +270,9 @@ def stacking_tilt(aa_residue, aa_coordinates):
     
 def vector_calculation(residue):
     key = residue.sequence
-    P1 = residue.centers[Normal_residue[key][0]]
-    P2 = residue.centers[Normal_residue[key][1]]
-    P3 = residue.centers[Normal_residue[key][2]]
+    P1 = residue.centers[planar_atoms[key][0]]
+    P2 = residue.centers[planar_atoms[key][1]]
+    P3 = residue.centers[planar_atoms[key][2]]
     #print P1, P2, P3
     vector = np.cross((P2 - P1),(P3-P1))
     return vector
@@ -528,7 +527,7 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['3I8G']
+PDB_List = ['1FJG']
 base_seq_list = ['A', 'U', 'C', 'G']
 aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 #aa_list = ['PRO', 'TRP']
@@ -546,7 +545,7 @@ if __name__=="__main__":
         base_part = 'base'
                                                
                  
-        bases = structure.residues(sequence= base_seq_list)
+        bases = structure.residues(chain = "A", sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
         list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)
