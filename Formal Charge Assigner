@@ -1,0 +1,88 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Feb 26 16:18:10 2016
+
+@author: Poorna
+"""
+from FormalCharge import charge_magnitude
+from FormalCharge import charge_sign
+import numpy as np
+import matplotlib.pyplot as plt
+
+sequence = {}
+charge_sequence = {}
+charge_code = []
+net_charge_mag = []
+net_charge_sign = []
+
+with open('E:\\FRET\\Sequencing and Primers\\IscU_alignments_CDD.txt') as f:
+    lineslist = f.readlines()
+for line in lineslist:
+    
+    line=line.upper()    
+    string = line.split()
+    #print string
+    key = string[1]
+    #print key
+    if key not in sequence:
+        sequence[key]= string[3]
+    else:
+        sequence[key]+=string[3]
+#print "Sequence:", sequence
+#print len(sequence)
+for key, value in sequence.iteritems():
+    seq = list(value)
+    #print seq
+    #print key, len(seq)
+    list_charge_magnitude = []
+    list_charge_sign = []
+    
+    for aa_code in seq:
+        if aa_code in charge_magnitude:
+            m = charge_magnitude[aa_code]
+            s = charge_sign[aa_code]
+            
+            list_charge_magnitude.append(m)
+            list_charge_sign.append(s)
+        else:
+            print "Invalid amino acid sequence"
+            continue
+    charge_sequence[key] = (list_charge_magnitude, list_charge_sign)
+    #print charge_sequence[key]
+    #len(list_charge_magnitude)
+    
+    net_charge_mag.append(list_charge_magnitude)
+    net_charge_sign.append(list_charge_sign)
+    
+#print net_charge
+
+
+result1 = np.nanmean(net_charge_mag, axis = 0)
+result2 = np.nanmean(net_charge_sign, axis = 0)
+result = zip(result1,result2)
+#print "Result:", result
+
+"""Plotting the charge magnitude and sign"""
+x = result2
+y = result1
+
+#print x,y
+"""print "X:", x
+print "Y:", y"""
+# set axes range
+fig = plt.figure()
+ax = fig.add_subplot(111)
+plt.xlim(-1.2, 1.2)
+plt.ylim(-0.2, 1.2)
+
+ax.set_xlabel('Charge Sign')
+ax.set_ylabel('Charge Magnitude')
+
+plt.scatter(x, y, s=80, c="red", alpha=1.0)
+#l = np.arange(1,len(x))
+#plt.plot(x,l)
+plt.show()
+np.savetxt("resultcharge.csv", result, delimiter=",")
+
+
+    
