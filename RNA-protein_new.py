@@ -153,7 +153,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                 
                     
                 elif interaction == "stacked" or interaction == "perpendicular":
-                    edge = "N/A"
+                    edge = detect_face(aa_residue, aa_coordinates)
                     base_aa = annotate(base_residue, aa_residue, interaction, edge)
                     
                     """if base_residue.unit_id() in helix_list:
@@ -186,6 +186,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     
     return list_base_aa, list_aa_coord, list_base_coord 
     #return list_aa_coord, list_base_coord, count, list_base_aa
+
 def annotate(base_residue, aa_residue, interaction, edge):
     base_aa = (base_residue, aa_residue, interaction, edge)
     return base_aa
@@ -220,9 +221,8 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
 
     elif -1.8 <= mean_z < 1.8 and aa_residue.sequence in pseudopair_aa:
             angle= calculate_angle(base_residue, aa_residue)
-            #print "pseudopair"
-            #print base_residue.unit_id(), aa_residue.unit_id(), mean_z, angle
             
+                        
             #if stacking_tilt(aa_residue, aa_coordinates) == "stacked":
             if 0 <= angle <= 0.75 or 2.6 <= angle <= 3.14:
                 return "pseudopair"
@@ -242,8 +242,8 @@ def stacking_angle (base_residue, aa_residue, min_dist):
     stacked_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "LEU", "ILE", "PRO", "ASN", "GLN"])       
     perpendicular_aa = set (["TYR", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE"])
     angle = angle_between_planes(vec1, vec2)
-    print "stacked"
-    print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
+    #print "stacked"
+    #print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
     
     if aa_residue.sequence in stacked_aa:
         if angle <=0.67 or 2.45 <= angle <= 3.15:
@@ -292,6 +292,9 @@ def translate_rotate(atom, reference, rotation_matrix):
      #transposed_rotation = rotation_matrix.transpose()
      rotated_atom = dist_aa_matrix * rotation_matrix
      coord_array = np.array(rotated_atom)
+     
+     #print rotated_atom
+
      a = coord_array.flatten()
      coord = a.tolist()    
      return coord
@@ -328,6 +331,27 @@ def detect_edge(base_residue, base_coordinates,aa_residue, aa_coordinates):
         return "WC"
     elif 1.4 <= angle_aa <= 3.2:
         return "Hoogsteen"
+
+def detect_face(aa_residue, aa_coordinates):
+    squared_xy_dist_list = []
+    aa_z =[]
+    
+    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+        key = aa_atom.name
+        aa_x= aa_coordinates[key][0]
+        aa_y= aa_coordinates[key][1]
+        
+        squared_xy_dist = (aa_x**2) + (aa_y**2)
+        squared_xy_dist_list.append(squared_xy_dist)
+        
+        aa_z.append(aa_coordinates[key][2])
+        
+    mean_z = np.mean(aa_z)
+    
+    if mean_z <= 0:
+        return "s5"
+    else:
+        return "s3"
     
         
 ChainNames = {}
@@ -527,10 +551,10 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['1FJG']
+PDB_List = ['2AW7']
 base_seq_list = ['A', 'U', 'C', 'G']
-aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
-#aa_list = ['PRO', 'TRP']
+#aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
+aa_list = ['TYR', 'TRP', 'PHE', 'ARG']
 
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')
@@ -545,7 +569,7 @@ if __name__=="__main__":
         base_part = 'base'
                                                
                  
-        bases = structure.residues(chain = "A", sequence= base_seq_list)
+        bases = structure.residues(chain= "A",sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
         list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)

@@ -148,10 +148,12 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                     else:
                         secondary_structure= "Loop"
                         """
+                    edge = detect_edge(base_residue, base_coordinates,aa_residue, aa_coordinates)
                     
-                    tup1= (base_residue, aa_residue, interaction)
-                    
-                    list_base_aa.append(tup1)
+                    base_aa = (base_residue, aa_residue, interaction, edge)
+                
+                                        
+                    list_base_aa.append(base_aa)
                     
                     for base_atom in base_residue.atoms():
                         list_base_coord.append(base_coordinates)
@@ -195,15 +197,16 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     mean_z = np.mean(aa_z)
     mean_x = np.mean(aa_x)
     mean_y = np.mean(aa_y)
-    
+    #text_file = open("Output.txt", "wb")
 
-    if mean_y <= 6 and mean_x <= 6:
-        if -5.0 <= mean_z < 5.0 and aa_residue.sequence in bidentate_aa:
+    if -4 <= mean_y <= 6 and -5 <= mean_x <= 5:
+        if -3 <= mean_z < 3 and aa_residue.sequence in bidentate_aa:
             #print "bidentate?"
             angle= calculate_angle(base_residue, aa_residue)
             print base_residue.unit_id(), aa_residue.unit_id(), angle, (mean_x, mean_y, mean_z)
-            #if  0.57 <= angle <= 1.1 or 1.29 <= angle <=2.46:
-            return "bidentate"
+            #text_file.write (base_residue.unit_id(), aa_residue.unit_id(), angle, mean_x, mean_y, mean_z)
+            if  0.6 <= angle <= 1.1 or 1.29 <= angle <=2.42:
+                return "bidentate"
                  
             
 def calculate_angle (base_residue, aa_residue):
@@ -242,6 +245,40 @@ def translate_rotate(atom, reference, rotation_matrix):
      coord = a.tolist()    
      return coord
                 
+def detect_edge(base_residue, base_coordinates,aa_residue, aa_coordinates):
+    aa_x = 0
+    aa_y = 0
+    n = 0
+    base_x = 0
+    base_y = 0
+    for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
+        key = aa_atom.name
+        aa_x+= aa_coordinates[key][0]
+        aa_y+= aa_coordinates[key][1]
+        n +=1
+    aa_center_x = aa_x/n        
+    aa_center_y = aa_y/n        
+          
+    for base_atom in base_residue.atoms(name=RNAbaseheavyatoms[base_residue.sequence]):
+        key = base_atom.name
+        base_x+= base_coordinates[key][0]
+        base_y+= base_coordinates[key][1]
+        n +=1
+    base_center_x = aa_x/n        
+    base_center_y = aa_y/n  
+    
+    y = aa_center_y - base_center_y
+    x = aa_center_x - base_center_x
+    angle_aa = np.arctan2(y,x)
+    #print base_residue.unit_id(), aa_residue.unit_id(),angle_aa
+    if -1 <= angle_aa <= 0:
+        return "Sugar"
+    elif angle_aa <=1:
+        return "WC"
+    elif 1.4 <= angle_aa <= 3.2:
+        return "Hoogsteen"
+    
+        
 ChainNames = {}
 
 ChainNames ['5AJ3'] = {'B' :'uS2m' , 'C': 'uS3m/ uS24m', 'E':'uS5m', 'F':'bS6m',
@@ -294,7 +331,7 @@ def true_bidentate(result_list):
     bidentate_resi = set()
     final_result = []
     
-    for base_residue, aa_residue, interaction in result_list:
+    for base_residue, aa_residue, interaction, edge in result_list:
             #base = base_residue.unit_id()
             #aa = aa_residue.unit_id()
             if interaction == "bidentate":
@@ -303,29 +340,29 @@ def true_bidentate(result_list):
                 else: 
                     aa_list.append(aa_residue)
             else:
-                base_aa_tuple = (base_residue, aa_residue, interaction)
+                base_aa_tuple = (base_residue, aa_residue, interaction, edge)
                 final_result.append(base_aa_tuple)
                 
-    for base_residue, aa_residue, interaction in result_list:
+    for base_residue, aa_residue, interaction, edge in result_list:
         if aa_residue in bidentate_resi:
-            base_aa_tuple = (base_residue, aa_residue, interaction)
+            base_aa_tuple = (base_residue, aa_residue, interaction, edge)
             final_result.append(base_aa_tuple)
                 
     return final_result
         
 def csv_output(result_list):
     with open('E:\\Leontis\\Python scripts\\Outputs\\Bidentate_%s.csv' % PDB, 'wb') as csvfile:
-        fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number', 'Interaction']
+        fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number', 'Interaction', 'Edge']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         
-        for base_residue, aa_residue, interaction in result_list:
+        for base_residue, aa_residue, interaction, edge in result_list:
             base = base_residue.unit_id()
             aa = aa_residue.unit_id()
             #print base, aa, interaction               
             base_component = str(base).split("|")
             aa_component = str(aa).split("|")
-            writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4], 'Interaction': interaction})
+            writer.writerow({'RNA Chain ID': base_component[2], 'RNA residue':base_component[3],'RNA residue number': base_component[4],'Protein Chain ID':aa_component[2],'AA residue': aa_component[3],'AA residue number': aa_component[4], 'Interaction': interaction, 'Edge': edge})
         
         """for base_residue, aa_residue,interaction in result_list:
                     base_component = str(base_residue).split("|")
@@ -439,7 +476,7 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['4YBB']
+PDB_List = ['2AW7']
 base_seq_list = ['A', 'U','G', 'C']
 aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 #aa_list = ['ARG']
@@ -458,7 +495,7 @@ if __name__=="__main__":
         base_part = 'base'
                                                
                  
-        bases = structure.residues(chain = ["AA"], sequence= base_seq_list)
+        bases = structure.residues(chain = ["A"], sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
         list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)
