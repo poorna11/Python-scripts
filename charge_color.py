@@ -39,18 +39,26 @@ for i, magnitude, sign in charge_magnitude:
         g = (0.7-sign)
         b = 0.7
         
-        color_value_i = abs((magnitude + 0.3)*np.array([r,g,b]))
-            
+        #color_value_i = abs((magnitude + 0.3)*np.array([r,g,b]))
+        color_value_i = (magnitude + 0.3)*np.array([r,g,b])
         color_value_i = color_value_i.tolist()
+        
+        for index, item in enumerate(color_value_i):
+            if item < 0:
+                color_value_i[index] = 0
+                      
                         
     elif -1 <= sign < 0:
         r = 0.7
         g = (0.7+sign)
         b = (0.7+sign)
                 
-        color_value_i = abs((magnitude + 0.3)*np.array([r,g,b]))
+        color_value_i = ((magnitude + 0.3)*np.array([r,g,b]))
         color_value_i = color_value_i.tolist()
-    #print color_value_i
+        
+        for index, item in enumerate(color_value_i):
+            if item < 0:
+                color_value_i[index] = 0
     
     color_name = str("color%s"% i)
     #print color_name, color_value_i
