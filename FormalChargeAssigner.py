@@ -4,110 +4,71 @@ Created on Fri Feb 26 16:18:10 2016
 
 @author: Poorna
 """
+from Bio import AlignIO
 from FormalCharge import charge_magnitude
 from FormalCharge import charge_sign
-from FormalCharge import unique_id
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
 
+
+alignment = AlignIO.read(open("E:\\FRET\\Charge Conservation\\IscU.fasta"), "fasta")
+"""alignment = AlignIO.read(sys.argv[1], "fasta")
+ref_id = sys.argv[2]"""
+
+#ref_id = input('Please enter the ID of the reference sequence:')
+reference_key = None
 sequence = {}
-charge_sequence = {}
 charge_code = []
 net_charge_mag = []
 net_charge_sign = []
-net_unique_id = []
 
-with open('E:\\FRET\\Charge Conservation\\IscU_alignments_CDD.txt') as f:
-    
-    lineslist = f.readlines()
-    reference_key = None
-    
-for line in lineslist:
-    line=line.upper()    
-    string = line.split()
-    
-
-    if len(string)<3:
-        print string
-        string = string[0], '###', string[1]
-        print string
-       
-    elif len(string) == 5:
-        string = string[0]+string[1], string[2], string[3], string[4]
-        
-    key = string[0]
+for record in alignment:
+    key = record.id
     
     if reference_key is None:
         reference_key = key
-        #print reference_key
-    #print key
-    if key not in sequence:
-        sequence[key]= string[2]
-    else:
-        sequence[key]+=string[2]
+    sequence[key] = record.seq
 
 for key, value in sequence.iteritems():
-    #n = 1
-    
+    value = value.upper()
     seq = list(value)
     #print seq
- 
-    if key == reference_key:
-        ref_seq = seq
-        
-        
+    
     list_charge_magnitude = []
     list_charge_sign = []
     list_unique_id = []
+    list_ref_percent = []
                     
     for aa_code in seq:
                 
         if aa_code in charge_magnitude:
             m = charge_magnitude[aa_code]
             s = charge_sign[aa_code]
-            u = unique_id[aa_code]
-            
+                        
             list_charge_magnitude.append(m)
             list_charge_sign.append(s)
-            list_unique_id.append(u)
+            
         else:
             print "Invalid amino acid sequence"
             continue
-    """print "Reference:",ref_seq
-    net = zip(seq, ref_seq)
-    
-    for aa_code, ref_code in net:
-        print (aa_code, ref_code)
-        if aa_code == ref_code:
-            n = n+1
-    
-    print n, len(net)
         
+    
     #charge_sequence[key] = (list_charge_magnitude, list_charge_sign)
-"""    
+   
     net_charge_mag.append(list_charge_magnitude)
     net_charge_sign.append(list_charge_sign)
-    net_unique_id.append(list_unique_id)
     
-
-
+    
+    if key == reference_key:
+        ref_seq = seq
+        #print "Reference:", ref_seq
+        
+ 
 result1 = np.nanmean(net_charge_mag, axis = 0)
 result2 = np.nanmean(net_charge_sign, axis = 0)
 
-consensus_unique_id = np.nanmean(net_unique_id, axis = 0)
-consensus_unique_id = (consensus_unique_id).flatten()
-
-#print consensus_unique_id
-consensus_seq = []
-
-for id in consensus_unique_id:
-    int_id = round(id,0)
-    for key, value in unique_id.iteritems():
-        if value==int_id:
-            consensus_seq.append(key)
-
-result = zip(ref_seq, result1,result2, consensus_seq)
+result = zip(ref_seq, result1,result2)
 #2print "Result:", result
 
 out = open('resultdraft.csv', 'wb')
@@ -129,8 +90,7 @@ plot_sign = []
 output = open('resultdraft.csv', 'rb')
 
 edited_output= open('resultcharge_final.csv', 'wb')
-fieldnames = ['Residue number', 'Residue', 'Charge Magnitude', 'Charge Sign', 
-'Consensus seq']
+fieldnames = ['Residue number', 'Residue', 'Charge Magnitude', 'Charge Sign']
 writer = csv.DictWriter(edited_output, fieldnames=fieldnames)
 writer.writeheader()
 
@@ -139,7 +99,7 @@ for row in csv.reader(output):
     
     if seq != "-":
         writer.writerow({'Residue number': res_start,'Residue': row[0], 
-        'Charge Magnitude': row[1], 'Charge Sign': row[2], 'Consensus seq': row[3]})
+        'Charge Magnitude': row[1], 'Charge Sign': row[2]})
         
         plot_magnitude.append(float(row[1]))
         plot_sign.append(float(row[2]))
@@ -184,3 +144,5 @@ plt.show()
 
 output.close()
 edited_output.close()
+
+  
