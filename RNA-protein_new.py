@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Nov 26 12:44:30 2014 @author: Poorna
+Name: RNA-protein detection
 """
 
 """Detect and plot RNA base- amino acid interactions."""
@@ -81,19 +82,15 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     aaList_len = None
     new_aaList_len = None
     list_base_aa = []
-    
-    #helix_list = []
-    
-    #target = open('E:\\Leontis\\Python scripts\\RNAprotein-count_%s.txt' % PDB, 'a')
+
     for base_residue in bases:
+        
         base_seq = base_residue.sequence
         if base_part == 'base':
             base_atoms = RNAbaseheavyatoms[base_seq]
-        elif base_part == 'nt_backbone':
-            base_atoms = nt_backbone[base_seq]
-                    
         try:
             base_center = base_residue.centers[tuple(base_atoms)]
+            #print "Base residue center", base_residue.unit_id(), base_center
         
             if not base_center.any():
                 continue
@@ -107,7 +104,6 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
             aa_center = aa_residue.centers[aa_part]
             if not aa_center.any():
                 continue
-            
             #print base_center, aa_center, aa_residue.unit_id()            
             dist_vector = np.subtract(base_center, aa_center)
             dist_scalar = np.linalg.norm(dist_vector)
@@ -121,47 +117,41 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                 count_pair = count_pair + 1
                 
                 rotation_matrix = base_residue.rotation_matrix
+                #print "rotation matrix", base_residue, rotation_matrix
                 
                 base_coordinates = {}
                 for base_atom in base_residue.atoms():
                     base_key = base_atom.name
                     base_coordinates[base_key]= translate_rotate(base_atom, base_center, rotation_matrix)
-                    
                     # base_coordinates is a list of the Atoms
                 
                 aa_coordinates = {}                           
                 for atom in aa_residue.atoms():
                     key = atom.name
                     aa_coordinates[key]= translate_rotate(atom, base_center, rotation_matrix)
-                    #print key, translate_rotate(atom, base_center, base_residue)
-                                    
-                              
+                    #print "translated atom", base_residue.unit_id, aa_residue.unit_id
+                                                        
                 interaction = type_of_interaction(base_residue, aa_residue, aa_coordinates)
-                    
-                #csv reader for helix-loop classification
-                #with open('E:\\Leontis\\Python scripts\\CIF\\5AJ3.csv', 'rb') as f:
-                    #reader = csv.reader(f)
-                    
-                    #for entry in reader:
-                     #   helix_list.extend(entry)
-                
+                               
                 base_aa = None
                 if interaction == "pseudopair" and enough_HBs(base_residue, aa_residue, base_atoms):
                         edge = detect_edge(base_residue, base_coordinates,aa_residue, aa_coordinates)
-                        #print edge
                         base_aa = annotate(base_residue, aa_residue, interaction, edge)
+            
+                elif interaction == "SHB":
+                    edge = detect_edge(base_residue, base_coordinates,aa_residue, aa_coordinates)
+                    base_aa = annotate(base_residue, aa_residue, interaction, edge)
                 
+                elif interaction == "perpendicular edge":
+                    edge = detect_edge(base_residue, base_coordinates,aa_residue, aa_coordinates)
+                    base_aa = annotate(base_residue, aa_residue, interaction, edge)
                     
-                elif interaction == "stacked" or interaction == "perpendicular":
+                elif interaction == "stacked" or interaction == "cation-pi" \
+                or interaction == "perpendicular stacking":
                     edge = detect_face(aa_residue, aa_coordinates)
                     base_aa = annotate(base_residue, aa_residue, interaction, edge)
                     
-                    """if base_residue.unit_id() in helix_list:
-                        secondary_structure= "Helix"
-                    else:
-                        secondary_structure= "Loop"
-                        """
-                    
+                   
                 if base_aa is not None:                      
                     list_base_aa.append(base_aa)
                     
@@ -171,8 +161,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                         list_aa_coord.append(aa_coordinates)
 
         new_aaList_len = len(list_base_aa)
-                                   
-                   
+                           
         new_aaList_len = len(list_aa_coord)
         #list_base_residue.append(base_residue)
     try:
@@ -181,9 +170,9 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
             print 'No neighbors detected with %s' % aa_residue.sequence
     except:
        print "done"
+       #print base_residue.rotation_matrix
     #print "%d neighbors" % count_pair + ' detected in %s' % PDB + ' with %s' % aa 
-    
-    
+        
     return list_base_aa, list_aa_coord, list_base_coord 
     #return list_aa_coord, list_base_coord, count, list_base_aa
 
@@ -196,15 +185,16 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     aa_z =[]
     
     """Defines different sets of amino acids"""
-    stacked_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE", "PRO", "THR"])
-    #bidentate_aa = set (["ASP", "GLU", "ASN", "GLN", "ARG", "HIS", "TRP", "TYR","PHE", "ILE", "LEU"])
-    pseudopair_aa = set (["ASP", "GLU", "ASN", "GLN", "HIS", "LYS", "ARG", "SER", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE", "MET"])
-    
+    stacked_planar_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "ASN", "GLN"])
+    stacked_aliphatic = set(["LEU", "ILE", "PRO", "THR"])
+    pseudopair_aa = set (["ASP", "GLU", "ASN", "GLN", "HIS", "ARG", "TYR", "TRP", "PHE", "VAL", "LEU", "ILE", "MET"])
+    shb_aa = set (["SER", "LYS", "THR"])
+        
     for aa_atom in aa_residue.atoms(name=aa_fg[aa_residue.sequence]):
         key = aa_atom.name
         aa_x= aa_coordinates[key][0]
         aa_y= aa_coordinates[key][1]
-        
+                
         squared_xy_dist = (aa_x**2) + (aa_y**2)
         squared_xy_dist_list.append(squared_xy_dist)
         
@@ -214,20 +204,29 @@ def type_of_interaction(base_residue, aa_residue, aa_coordinates):
     
     #print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
     if min(squared_xy_dist_list) <= 5:
-        if aa_residue.sequence in stacked_aa:
+        print base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
+        if aa_residue.sequence in stacked_planar_aa:
+            print "stacking?", base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
             return stacking_angle(base_residue, aa_residue, min(squared_xy_dist_list))
-        else:
+        
+        elif aa_residue.sequence in stacked_aliphatic:
             return stacking_tilt(aa_residue, aa_coordinates)
-
+    
     elif -1.8 <= mean_z < 1.8 and aa_residue.sequence in pseudopair_aa:
             angle= calculate_angle(base_residue, aa_residue)
-            
-                        
-            #if stacking_tilt(aa_residue, aa_coordinates) == "stacked":
+            #print "pseudopair?", base_residue.unit_id(), aa_residue.unit_id(), min(squared_xy_dist_list), mean_z
             if 0 <= angle <= 0.75 or 2.6 <= angle <= 3.14:
                 return "pseudopair"
-         
-            
+            elif 1.2<= angle <=1.64:
+                return "perpendicular edge"
+    
+    elif -1.8 <= mean_z < 1.8 and aa_residue.sequence in shb_aa:
+        base_seq = base_residue.sequence
+        base_atoms = RNAbaseheavyatoms[base_seq]
+        if atom_dist_basepart(base_residue, aa_residue, base_atoms, 1):
+            return "SHB"
+        
+                     
 def calculate_angle (base_residue, aa_residue):
     vec1 = vector_calculation(base_residue)
     vec2 = vector_calculation(aa_residue)
@@ -240,7 +239,8 @@ def stacking_angle (base_residue, aa_residue, min_dist):
     vec2 = vector_calculation(aa_residue)
     
     stacked_aa = set (["TRP", "TYR", "PHE", "HIS", "ARG", "LYS", "LEU", "ILE", "PRO", "ASN", "GLN"])       
-    perpendicular_aa = set (["TYR", "HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE"])
+    perpendicular_aa = set (["HIS", "ARG", "LYS", "ASN", "GLN", "LEU", "ILE"])
+    perpendicular_stack_aa = set(["PHE", "TYR"])
     angle = angle_between_planes(vec1, vec2)
     #print "stacked"
     #print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
@@ -248,9 +248,11 @@ def stacking_angle (base_residue, aa_residue, min_dist):
     if aa_residue.sequence in stacked_aa:
         if angle <=0.67 or 2.45 <= angle <= 3.15:
             return "stacked"
-        elif aa_residue.sequence in perpendicular_aa:
-            if 1.2<= angle <=1.64:
-                return "perpendicular"
+        elif 1.2<= angle <=1.64:
+            if aa_residue.sequence in perpendicular_stack_aa:
+                return "perpendicular stacking"
+            elif aa_residue.sequence in perpendicular_aa:
+                return "cation-pi"
     
 
 def stacking_tilt(aa_residue, aa_coordinates):
@@ -262,7 +264,6 @@ def stacking_tilt(aa_residue, aa_coordinates):
         baa_dist_list.append(aa_z)        
     max_baa = max(baa_dist_list)
     min_baa = min(baa_dist_list)
-    #print 'max distance: %s' % max_baa + ' min distance: %s' % min_baa
     diff = max_baa - min_baa
     #print aa_residue.unit_id(), diff
     if diff <= tilt_cutoff[aa_residue.sequence]:
@@ -288,13 +289,10 @@ def translate_rotate(atom, reference, rotation_matrix):
      atom_coord = atom.coordinates()
      dist_translate = np.subtract(atom_coord, reference)
      dist_aa_matrix = np.matrix(dist_translate)
-     #rotation_matrix = base_residue.rotation_matrix
      #transposed_rotation = rotation_matrix.transpose()
      rotated_atom = dist_aa_matrix * rotation_matrix
-     coord_array = np.array(rotated_atom)
-     
      #print rotated_atom
-
+     coord_array = np.array(rotated_atom)
      a = coord_array.flatten()
      coord = a.tolist()    
      return coord
@@ -326,11 +324,11 @@ def detect_edge(base_residue, base_coordinates,aa_residue, aa_coordinates):
     angle_aa = np.arctan2(y,x)
     #print base_residue.unit_id(), aa_residue.unit_id(),angle_aa
     if -1 <= angle_aa <= 0:
-        return "Sugar"
+        return "fgbS"
     elif angle_aa <=1:
-        return "WC"
+        return "fgbWC"
     elif 1.4 <= angle_aa <= 3.2:
-        return "Hoogsteen"
+        return "fgbH"
 
 def detect_face(aa_residue, aa_coordinates):
     squared_xy_dist_list = []
@@ -349,50 +347,11 @@ def detect_face(aa_residue, aa_coordinates):
     mean_z = np.mean(aa_z)
     
     if mean_z <= 0:
-        return "s5"
+        return "fgbs5"
     else:
-        return "s3"
+        return "fgbs3"
     
         
-ChainNames = {}
-
-ChainNames ['5AJ3'] = {'B' :'uS2m' , 'C': 'uS3m/ uS24m', 'E':'uS5m', 'F':'bS6m',
-                       'G':'uS7m', 'I':'uS9m', 'J':'uS10m', 'K':'uS11m', 'L':'uS12m',
-                       'N':'uS14m', 'O':'uS15m','P':'bS16m','Q':'uS17m',
-                       'R':'uS18m/ uS18c', 'T':'bL19m', 'U':'bS21m','a':'mS22',
-                       'b':'mS23', 'c':'mS25', 'd': 'mS26', 'e':'mS27', 'f':'bS1m/mS28',
-                       'g':'mS29','h':'mS31','i':'mS33','j':'mS34','k':'mS35','m':'mS37',
-                       'n':'mS38','o':'mS39','p':'mS40'}
-
-
-ChainNames ['3J9M'] = {'B' :'uS2m' , 'C': 'uS3m/ uS24m', 'D':'uS5m',
-                       'E':'bS6m', 'F':'uS7m', 'G':'uS9m', 'H':'uS10m',
-                       'I':'uS11m', 'J':'uS12m', 'K':'uS14m', 'L':'uS15m',
-                       'M':'bS16m', 'N':'uS17m', 'O':'bS18b/ mS40','P':'uS18m/ uS18c',
-                       'Q':'bS21m', 'R':'mS22', 'S':'mS23', 'T':'mS25', 'U':'mS26',
-                       'V': 'mS27', 'W':'bL27m','X':'mS29', 'Y':'mS31','Z':'mS33','0': 'bL32m',
-                       '1': 'bL33m', '2': 'bL34m', '3': 'bL35m', '4': 'bL36m',
-                       '5': 'mL37','6': 'mL38','7': 'mL39', '8': 'mL40','9': 'mL41',
-                       'a':'mS34', 'b':'mS35', 'c':'mS37', 'd': 'mS38', 'e':'ms39', 'f':'mL48',
-                       'g':'mL49','h':'mL50','i':'mL51','j':'mL52','k':'mL53','l':'mL54',
-                       'm':'bL31m', 'o':'mL63','p':'mL62','q':'mL62', 'r':'mL66/bS18a',
-                       's':'mL65/ mS30', 'AB':'uS2m','AC':'uS3m', 'AD':'uS5m',
-                       'AE':'bS6m', 'AF':'uS7m','AG':'uS9m', 'AH':'uS10m','AI':'uS11m',
-                       'AJ':'uS12m', 'AK':'uS14m', 'AL':'uS15m','AM':'bS16m','AN':'uS17m',
-                       'AO':'mS40/ bS18b', 'AP':'bS18m/ bS18c','AQ':'bS21m','AR':'mS22',
-                       'AS': 'mS23','AT': 'mS25','AU': 'mS26','AV': 'mS27','AW': 'bS21m',
-                       'AX': 'mS29','AY': 'mS31','AZ': 'mS33','A0': 'mS34','A1': 'mS35',
-                       'A2': 'mS37','A3': 'mS38','A4': 'mS39',}
-
-ChainNames ['3I8G'] = {'B':'bS1', 'E' :'uS2', 'F' :'uS3', 'G' :'uS4', 'H' :'uS5', 'I' :'bS6',
-                       'J' :'uS7', 'K' :'uS8', 'L' :'uS9', 'M' :'uS10', 'N' :'uS11',
-                       'O' :'uS12', 'P' :'uS13', 'Q': 'uS14', 'R' :'uS15', 'S' :'bS16',
-                       'T' :'bS17', 'U' :'uS18', 'V' :'uS19', 'W' :'bS20', 'X' :'bS21'}
-
-ChainNames ['2AW7'] = {'B' :'uS2', 'C' :'uS3', 'D' :'uS4', 'E' :'uS5', 'F' :'bS6',
-                       'G' :'uS7', 'H' :'uS8', 'I' :'uS9', 'J' :'uS10', 'K' :'uS11',
-                       'L' :'uS12', 'M' :'uS13', 'N': 'uS14', 'O' :'uS15', 'P' :'bS16',
-                       'Q' :'uS17', 'R' :'bS18', 'S' :'uS19', 'T' :'bS20', 'U' :'bS21'}
                                   
 def text_output(result_list):
     with open('E:\\Leontis\\Python scripts\\Outputs\\proteinRNA_%s.txt' % PDB, 'wb') as target:
@@ -551,10 +510,11 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['2AW7']
-base_seq_list = ['A', 'U', 'C', 'G']
-#aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
-aa_list = ['TYR', 'TRP', 'PHE', 'ARG']
+PDB_List = ['5AXM']
+base_seq_list = ['A','U','C','G']
+#base_seq_list = ['A']
+aa_list = ['ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
+#aa_list = ['TYR', 'TRP', 'PHE', 'ARG']
 
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection='3d')
@@ -568,8 +528,7 @@ if __name__=="__main__":
         aa_part = 'aa_fg'
         base_part = 'base'
                                                
-                 
-        bases = structure.residues(chain= "A",sequence= base_seq_list)
+        bases = structure.residues(sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
         list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)

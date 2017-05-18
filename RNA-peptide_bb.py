@@ -78,9 +78,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
     aaList_len = None
     new_aaList_len = None
     list_base_aa = []
-    
-    
-    #target = open('E:\\Leontis\\Python scripts\\RNAprotein-count_%s.txt' % PDB, 'a')
+
     for base_residue in bases:
         base_seq = base_residue.sequence
         if base_part == 'base':
@@ -113,7 +111,6 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
                 count_pair = count_pair + 1
                 
                 rotation_matrix = base_residue.rotation_matrix
-                
                 base_coordinates = {}
                 for base_atom in base_residue.atoms():
                     base_key = base_atom.name
@@ -151,8 +148,7 @@ def find_neighbors(bases, amino_acids, aa_part, dist_cent_cutoff):
 
                 new_aaList_len = len(list_base_aa)
                     
-        
-                   
+                     
             new_aaList_len = len(list_aa_coord)
         #list_base_residue.append(base_residue)
     try:
@@ -247,7 +243,7 @@ def stacking_angle (base_residue, aa_residue, min_dist):
                 
     angle = angle_between_planes(vec1, vec2)
     print base_residue.unit_id(), aa_residue.unit_id(), min_dist, angle
-    if angle <=0.79 or 2.35 <= angle <= 3.15:
+    if angle <=0.64 or 2.5 <= angle <= 3.15:
         return "stacked"
     
 def stacking_tilt(aa_residue, aa_coordinates):
@@ -309,7 +305,7 @@ def text_output(result_list):
             target.close
         
 def csv_output(result_list):
-    with open('E:\\Leontis\\Python scripts\\Outputs\\proteinRNA-peptide_%s.csv' % PDB, 'wb') as csvfile:
+    with open('E:\\Leontis\\Python scripts\\Outputs\\base-peptide_%s.csv' % PDB, 'wb') as csvfile:
         fieldnames = ['RNA Chain ID', 'RNA residue','RNA residue number','Protein Chain ID', 'AA residue','AA residue number', 'Interaction', 'Edge']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -433,32 +429,29 @@ def draw_aa_cent(aa, aa_part, ax):
             continue
                 
 """Inputs a list of PDBs of interest to generate super-imposed plots"""   
-PDB_List = ['5AJ3']
+PDB_List = ['2AW7']
 base_seq_list = ['A','U','C','G']
 aa_list = ['GLY','ALA','VAL','ILE','LEU','ARG','LYS','HIS','ASP','GLU','ASN','GLN','THR','SER','TYR','TRP','PHE','PRO','CYS','MET']
 #aa_list = ['ALA','VAL','ILE','LEU','TYR','TRP','PHE','PRO','CYS','MET']
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+#fig = plt.figure()
+#ax = fig.add_subplot(111, projection='3d')
 
 """Inputs base, amino acid, aa_part of interest and cut-off distance for subsequent functions"""   
 if __name__=="__main__":
     for PDB in PDB_List:
         structure = get_structure('E:\\Leontis\\Python scripts\\CIF\\%s.cif' % PDB)
         result_nt_aa = []
-        
-        
-        
+    
         aa_part = 'aa_backbone'
         base_part = 'base'
-                                               
-                 
+                  
         bases = structure.residues(sequence= base_seq_list)
         amino_acids = structure.residues(sequence=aa_list)
                 
         list_base_aa, list_aa_coord, list_base_coord = find_neighbors(bases, amino_acids, aa_part, 10)
-             
-        # 3D plots of base-aa interactions
+           
+        """3D plots of base-aa interactions
         for base, aa, interaction, edge in list_base_aa:
             base_seq = base.sequence
             aa= aa.sequence
@@ -475,7 +468,7 @@ if __name__=="__main__":
             ax.set_zlim3d(10, -15)
             #plt.title('%s with ' % base_seq +'%s' % aa + ' %s' % aa_part)
             plt.show()
-                      
+                      """
         #making the list of resultant RNA-aa pairs
         result_nt_aa.extend(list_base_aa)
         
